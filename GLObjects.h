@@ -50,10 +50,9 @@ public:
 
 class VBO {
 public:
-	GLuint ID;
-	VBO();
-	VBO(GLfloat* vertices, GLsizeiptr size);
+	GLuint ID{};
 
+	void Create();
 	void Bind();
 	void BufferData(GLfloat* vertices, GLsizeiptr size);
 	void Unbind();
@@ -62,10 +61,9 @@ public:
 
 class EBO {
 public:
-	GLuint ID;
-	EBO();
-	EBO(GLuint* indices, GLsizeiptr size);
+	GLuint ID{};
 
+	void Create();
 	void Bind();
 	void BufferData(GLuint* indices, GLsizeiptr size);
 	void Unbind();
@@ -74,16 +72,16 @@ public:
 
 class VAO {
 public:
-	GLuint ID;
-	VAO();
+	GLuint ID{};
 
+	void Create();
 	void LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset);
 	void Bind();
 	void Unbind();
 	void Delete();
 
 private:
-	bool _is_bound;
+	bool _is_bound = false;
 };
 
 class Texture2D {

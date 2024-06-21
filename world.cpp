@@ -1,14 +1,16 @@
 #include "world.h"
 
+/* Hanjun Kim 2024 */
+
 float Block::vertexPositions[8][3] = {
-		{-0.5f, -0.5f, 0.5f},//-X-Y+Z 0
-		{0.5f, -0.5f, 0.5f},//+X-Y+Z 1
-		{0.5f, -0.5f, -0.5f},//+X-Y-Z 2
-		{-0.5f, -0.5f, -0.5f},//-X-Y-Z 3
-		{-0.5f, 0.5f, 0.5f},//-X-Y+Z 4
-		{0.5f, 0.5f, 0.5f},//+X-Y+Z 5
-		{0.5f, 0.5f, -0.5f},//+X-Y-Z 6
-		{-0.5f, 0.5f, -0.5f},//-X-Y-Z 7
+	{-0.5f, -0.5f, 0.5f},//-X-Y+Z 0
+	{0.5f, -0.5f, 0.5f},//+X-Y+Z 1
+	{0.5f, -0.5f, -0.5f},//+X-Y-Z 2
+	{-0.5f, -0.5f, -0.5f},//-X-Y-Z 3
+	{-0.5f, 0.5f, 0.5f},//-X-Y+Z 4
+	{0.5f, 0.5f, 0.5f},//+X-Y+Z 5
+	{0.5f, 0.5f, -0.5f},//+X-Y-Z 6
+	{-0.5f, 0.5f, -0.5f},//-X-Y-Z 7
 };
 
 int Block::faces[6][4] = {
@@ -57,7 +59,6 @@ BlockDB::BlockDB() {
 	tbl[BlockType::BLOCK_GRASS] = BlockDataRow{ BlockType::BLOCK_GRASS,	 { BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE, BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_TOP,	BlockTextures::DIRT} };
 
 }
-
 
 
 /*
@@ -156,18 +157,31 @@ GLuint Block::PlaceFaceData(
 	return idxCnt;
 }
 
-Chunk::Chunk() :blockCnt(0), vtxCnt(0), idxCnt(0) { 
+Chunk::Chunk() :blockCnt(0), vtxCnt(0), idxCnt(0), isBuilt(false) { 
 	basepos = ivec3(0, 0, 0); 
 };
-Chunk::Chunk(const ivec3& pos) : blockCnt(0), vtxCnt(0), idxCnt(0), basepos(pos) {};
+
+Chunk::Chunk(const ivec3& pos) : blockCnt(0), vtxCnt(0), idxCnt(0), basepos(pos), isBuilt(false) {
+	//nothing to do
+};
 
 void Chunk::Build() {
+	
+	//Building a chunk twice is an error, because we could be wasting computation.
+	//isBuilt flag must be turned off before any rebuild.
+	if (isBuilt) return;
+
 	// At this point, we assume all blocks have been put to our grid
 	// when more blocks are added, or blocks are deleted from the chunk,
 	// the chunk must be rebuilt.
 	
 	//create data buffer(vector)
 	//building takes a bit of memory but this goes to stack.
+	vao.Create();
+	vbo_pos.Create();
+	vbo_uv.Create();
+	ebo.Create();
+
 	vtxdata.reserve(blockCnt * 6 * 4);
 	uvdata.reserve(blockCnt * 6 * 3);
 	idxdata.reserve(blockCnt * 6 * 6);
@@ -207,6 +221,24 @@ void Chunk::Build() {
 	vao.Unbind();
 	ebo.Unbind();
 
+	isBuilt = true;
+
+}
+
+void Chunk::DeleteBuffers() {
+	
+	//delete all buffers
+	vao.Delete();
+	vbo_pos.Delete();
+	vbo_uv.Delete();
+	ebo.Delete();
+
+	//data can be freed. 
+	vtxdata.clear();
+	uvdata.clear();
+	idxdata.clear();
+
+	isBuilt = false;
 }
 
 void Chunk::Render() {
@@ -214,7 +246,6 @@ void Chunk::Render() {
 	vao.Bind();
 	glDrawElements(GL_TRIANGLES, idxCnt, GL_UNSIGNED_INT, 0);
 }
-
 
 bool Chunk::TestAABB(vec3 worldpos) {
 	//tests if worldpos is inside this chunk's boundary
@@ -228,6 +259,14 @@ bool Chunk::TestAABB(vec3 worldpos) {
 Chunk::ivec3 Chunk::FindBlockIndex(vec3 worldpos) {
 	worldpos -= basepos;
 	return ivec3(worldpos.x + 0.5f, worldpos.y + 0.5f, worldpos.z + 0.5f);
+}
+
+Chunk::ivec3 Chunk::WorldToChunkIndex(vec3 worldpos) {
+	Chunk::ivec3 currChunkIdx;
+	currChunkIdx.x = (worldpos.x >= 0.0 ? (int)(worldpos.x / Chunk::SZ) : (int)(worldpos.x / Chunk::SZ) - 1);
+	currChunkIdx.y = (worldpos.y >= 0.0 ? (int)(worldpos.y / Chunk::HEIGHT) : (int)(worldpos.y / Chunk::HEIGHT) - 1);
+	currChunkIdx.z = (worldpos.z >= 0.0 ? (int)(worldpos.z / Chunk::SZ) : (int)(worldpos.z / Chunk::SZ) - 1);
+	return currChunkIdx;
 }
 
 glm::f64vec2 FractalNoise2D::PerlinNoise2D::simpleNoiseFn(int ix, int iy) {
@@ -249,11 +288,143 @@ double FractalNoise2D::PerlinNoise2D::dotGradient(int ix, int iy, double x, doub
 	return ((x - (double)ix) * gradient.y + (y - (double)iy) * gradient.x);
 }
 
+inline double FractalNoise2D::PerlinNoise2D::lerp(double a, double b, double t) {
+	return (1.0 - t) * a + t * b;
+}
+
 double FractalNoise2D::PerlinNoise2D::samplePoint(double x, double y) {
 	//grid coords
-	int x0 = (int)x;
-	int y0 = (int)y;
+	int x0 = x >= 0 ? (int)x : (int)x - 1;
+	int y0 = y >= 0 ? (int)y : (int)y-1;
 	int x1 = x0 + 1, y1 = y0 + 1;
 	double sx = x - x0, sy = y - y0;
 
+	double n0 = dotGradient(x0, y0, x, y);
+	double n1 = dotGradient(x1, y0, x, y);
+	double ix0 = lerp(n0, n1, sx);
+
+	n0 = dotGradient(x0, y1, x, y);
+	n1 = dotGradient(x1, y1, x, y);
+	double ix1 = lerp(n0, n1, sx);
+
+	return lerp(ix0, ix1, sy);
+}
+
+double FractalNoise2D::samplePoint(double x, double y) {
+	double amount = 1.0;
+	double result = 0.0;
+	for (double f : octaves) {
+		result += amount * perlin.samplePoint(f * x, f * y);
+		amount *= persistance;
+	}
+	return result;
+}
+
+void TerrainGeneration::GenerateRocks(Chunk* chunk) {
+	const int base_terrain_offset = 16;
+	const int base_terrain_scale = 40;
+	for (int i = 0; i < Chunk::SZ; ++i) {
+		for (int k = 0; k < Chunk::SZ; ++k) {
+			int elevation = base_terrain_offset + base_terrain_scale * heightNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
+			for (int j = 0; j < Chunk::HEIGHT; ++j) {
+				if (chunk->basepos.y + j > elevation) break;
+				Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_GRASS);
+				block->pos.x = chunk->basepos.x + i;
+				block->pos.z = chunk->basepos.z + k;
+				block->pos.y = chunk->basepos.y + j;
+				chunk->blockCnt++;
+			}
+		}
+	}
+}
+
+Chunk* World::findOrCreateChunk(const p3i& chunkIdx) {
+	if (allChunks.count(chunkIdx)) return allChunks[chunkIdx];
+
+	//if the chunk doesn't exist, create it!
+	Chunk* chunk = new Chunk(
+		glm::ivec3(
+			Chunk::SZ * std::get<0>(chunkIdx),
+			Chunk::HEIGHT * std::get<1>(chunkIdx),
+			Chunk::SZ * std::get<2>(chunkIdx)
+		)
+	);
+
+	//populate the chunk with blocks data
+	worldgen.GenerateRocks(chunk);
+
+	allChunks[chunkIdx] = chunk;
+
+	return chunk;
+}
+
+World::World(glm::vec3 spawnPoint) {
+	//initialize worldgen
+	worldgen = TerrainGeneration();
+	//create initial chunks around spawn point
+	currChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
+}
+
+void World::CreateInitialChunks(glm::vec3 spawnPoint){
+	currChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
+	//generate initial blocks
+	for (int i = currChunkIdx.x - HVIS_WORLD_SZ; i <= currChunkIdx.x + HVIS_WORLD_SZ; ++i) {
+		for (int k = currChunkIdx.z - HVIS_WORLD_SZ; k <= currChunkIdx.z + HVIS_WORLD_SZ; ++k) {
+			for (int j = -HVIS_WORLD_HEIGHT; j <= HVIS_WORLD_HEIGHT; ++j) {
+				Chunk* chunk = visChunks[{i, j, k}] = findOrCreateChunk({ i, j, k });
+				if(!chunk->isBuilt) chunk->Build();
+			}
+		}
+	}
+}
+
+Chunk* World::CurrentChunk() {
+	return visChunks[{currChunkIdx.x, currChunkIdx.y, currChunkIdx.z}];
+}
+
+//renders all visible chunks
+void World::Render() {
+	for (auto& [cidx, chunk] : visChunks) {
+		chunk->Render();
+	}
+}
+
+//updates the map of visible chunks, unloading invisible chunks and building newly visible chunks.
+void World::UpdateChunks(glm::vec3 playerPosition) {
+	
+	glm::ivec3 cijk = Chunk::WorldToChunkIndex(playerPosition);
+	int ci = cijk.x, ck = cijk.z;
+	if (ci > currChunkIdx.x + 1 || ci < currChunkIdx.x - 1
+		|| ck > currChunkIdx.z + 1 || ck < currChunkIdx.z - 1) {
+		currChunkIdx = cijk;
+
+		//iterate over visible chunks, 
+		std::vector<p3i> to_remove{};
+		for (auto& [cidx, chunk] : visChunks) {
+			auto [i, j, k] = cidx;
+			//if moved out of view
+			if (i < ci - HVIS_WORLD_SZ || i > ci + HVIS_WORLD_SZ ||
+				k < ck - HVIS_WORLD_SZ || k > ck + HVIS_WORLD_SZ) {
+				chunk->DeleteBuffers();
+				to_remove.push_back(cidx);
+			}
+		}
+
+		//iterate over chunks that needs to be rendered, finding them and 
+		for (int i = ci - HVIS_WORLD_SZ; i <= ci + HVIS_WORLD_SZ; ++i) {
+			for (int k = ck - HVIS_WORLD_SZ; k <= ck + HVIS_WORLD_SZ; ++k) {
+				for (int j = -HVIS_WORLD_HEIGHT; j <= HVIS_WORLD_HEIGHT; ++j) {
+					if (!visChunks.count({ i, j, k })) {
+						Chunk* chunk = visChunks[{i, j, k}] = findOrCreateChunk({ i, j, k });
+						//build the chunks if not already built!
+						if (!chunk->isBuilt) chunk->Build();
+					}
+				}
+			}
+		}
+
+		for (p3i& rmvidx : to_remove) {
+			visChunks.erase(rmvidx);
+		}
+	}
 }

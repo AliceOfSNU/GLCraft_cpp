@@ -36,23 +36,23 @@ bool firstMouse = true;
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
 
-// position
-Chunk* currChunk = nullptr;
-Chunk* chunks[3][3];
+World world(Camera::MainCamera.position);
 
 void generate_chunk(Chunk* chunk) {
-	for (int i = 0; i < Chunk::SZ; ++i) {
-		for (int k = 0; k < Chunk::SZ; ++k) {
-			for (int j = 0; j < Chunk::HEIGHT / 2 + (i+k-8); ++j) {
-				Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_GRASS);
-				block->pos.x = chunk->basepos.x + i;
-				block->pos.z = chunk->basepos.z + k;
-				block->pos.y = chunk->basepos.y + j;
-				chunk->blockCnt++;
-			}
-		}
-	}
+	//for (int i = 0; i < Chunk::SZ; ++i) {
+	//	for (int k = 0; k < Chunk::SZ; ++k) {
+	//		for (int j = 0; j < Chunk::HEIGHT / 2 + (i+k-8); ++j) {
+	//			Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_GRASS);
+	//			block->pos.x = chunk->basepos.x + i;
+	//			block->pos.z = chunk->basepos.z + k;
+	//			block->pos.y = chunk->basepos.y + j;
+	//			chunk->blockCnt++;
+	//		}
+	//	}
+	//}
+	///generator.GenerateRocks(chunk);
 }
+
 
 int main() {
 	glfwInit();
@@ -76,14 +76,9 @@ int main() {
 	gladLoadGL();
 	glViewport(0, 0, 800, 800);
 	
+
 	FacesSelection selectedFaces;
-	for (int i = 0; i < 3; ++i) {
-		for (int j = 0; j < 3; ++j) {
-			chunks[i][j] = new Chunk(glm::ivec3(Chunk::SZ*(i-1), -Chunk::HEIGHT / 2, Chunk::SZ * (j - 1)));
-			generate_chunk(chunks[i][j]);
-			chunks[i][j]->Build();
-		}
-	}
+	world.CreateInitialChunks(Camera::MainCamera.position);
 
 	//create gl texture
 	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 3, GL_RGB);
@@ -110,27 +105,7 @@ int main() {
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 
-		// position
-		int found = false;
-		for (int i = 0; i < 3; ++i) {
-			for (int j = 0; j < 3; ++j) {
-				if (chunks[i][j]->TestAABB(Camera::MainCamera.position)) {
-					if (chunks[i][j] != currChunk) {
-						currChunk = chunks[i][j];
-						printf("currently at chunk [%d][%d]\n", i, j);
-					}
-					found = true; break;
-				}
-			}
-		}
-		if (!found) { 
-			if(currChunk) printf("chunk outside range\n");
-			currChunk = nullptr; 
-		}
-
-
 		//--------- INPUT
-
 		processInput(window);
 
 		//test area
@@ -165,12 +140,8 @@ int main() {
 		shader.setMat4f("view", glm::value_ptr(view));
 		shader.setMat4f("proj", glm::value_ptr(proj));
 
-		for (int i = 0; i < 3; ++i) {
-			for (int j = 0; j < 3; ++j) {
-				chunks[i][j]->Render();
-			}
-		}
-
+		world.UpdateChunks(Camera::MainCamera.position);
+		world.Render();
 		//debug render
 		solidColorShader.use();
 		solidColorShader.setMat4f("model", glm::value_ptr(model));
@@ -207,6 +178,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 	Ray ray(Camera::MainCamera.position, dir);
 	Debug::DrawRay(ray);
 
+	Chunk* currChunk = world.CurrentChunk();
 	if (!currChunk) return;
 
 	glm::ivec3 idx = currChunk->FindBlockIndex(Camera::MainCamera.position);

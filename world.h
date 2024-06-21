@@ -14,8 +14,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
+#include <algorithm>
+#include <map>
 #include <iostream>
 #include "GLObjects.h"
+
+using pii = std::pair<int, int>;
 
 
 class BlockDB {
@@ -91,12 +95,14 @@ class Chunk {
 public:
 	using ivec3 = glm::ivec3;
 	using vec3 = glm::vec3;
-	static constexpr int SZ = 8, HEIGHT = 32; //a chunk is SZ*HEIGHT*SZ large. the y coordinate is up.
+	static constexpr int SZ = 16, HEIGHT = 32; //a chunk is SZ*HEIGHT*SZ large. the y coordinate is up.
 	Block* grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
 	size_t blockCnt;
 	GLuint vtxCnt; //number of vertices to render(VBO)
 	GLuint idxCnt; //number of indices to render(EBO)
 	ivec3 basepos; //the position of minimum x, y, z.
+
+	bool isBuilt;
 	/*
 	* The vertices of a cube are always numbered as below:
 	* 
@@ -116,13 +122,13 @@ public:
 	//main functions
 	void Build();
 	void Render();
-	//void Delete();
+	void DeleteBuffers();
 
 	//utils
 	//testing worldpos lies inside this chunk's boundary
 	bool TestAABB(vec3 worldpos);
 	ivec3 FindBlockIndex(vec3 worldpos);
-	//ivec3 WorldToChunkCoordinate(ivec3 worldpos);
+	static ivec3 WorldToChunkIndex(vec3 worldpos);
 	//ivec3 ChunkToWorldCoordinate(ivec3 chunkpos);
 
 private:
@@ -142,29 +148,61 @@ public:
 	double persistance;
 	std::vector<double>octaves;
 	double samplePoint(double x, double y);
-	
 private:
+
 	class PerlinNoise2D{
 	public:
+		double samplePoint(double x, double y);
+	private:
 		glm::f64vec2 simpleNoiseFn(int x, int y);
 		double dotGradient(int ix, int iy, double x, double y);
-		double samplePoint(double x, double y);
+		inline double lerp(double x, double y, double t);
 	};
+
+	PerlinNoise2D perlin;
+
 };
 
 class TerrainGeneration {
 public:
 	FractalNoise2D heightNoise;
-	FractalNoise2D detailNoise;
-	FractalNoise2D roughnessNoise;
+	//FractalNoise2D detailNoise;
+	//FractalNoise2D roughnessNoise;
+
+	TerrainGeneration() {
+		heightNoise.persistance = 0.65;
+		heightNoise.octaves.push_back(0.1f);
+	}
 
 	//6월까지 목표 -> grasslands biome만 제대로 생성
 	//fills grid with granite up to height sampled from noise
-	void generate_rocks(Chunk* chunk);
+	void GenerateRocks(Chunk* chunk);
 
 	//replaces top few blocks with biome default surface blocks
-	void generate_surface_biome(Chunk* chunk);
+	void GenerateBiomeFill(Chunk* chunk);
 
 
+};
+
+class World {
+public:
+	using p3i = std::tuple<int, int, int>;
+	using pii = std::pair<int, int>;
+	std::map<p3i, Chunk*> allChunks;
+	std::map<p3i, Chunk*> visChunks;
+	TerrainGeneration worldgen;
+	glm::ivec3 currChunkIdx{ 0,0,0 };
+
+	static constexpr int VIS_WORLD_SZ = 5, HVIS_WORLD_SZ = 2, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
+
+	World(glm::vec3 spawnPoint);
+
+	void CreateInitialChunks(glm::vec3 playerPosition); //creates chunks to start with.
+	Chunk* CurrentChunk(); //Pointer to current chunk.
+	void UpdateChunks(glm::vec3 playerPosition);
+	void Render();
+
+private:
+	Chunk* findOrCreateChunk(const p3i& chunkIdx);
 };
 #endif

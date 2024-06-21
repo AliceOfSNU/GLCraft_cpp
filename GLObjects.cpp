@@ -1,12 +1,6 @@
 #include "GLObjects.h"
 
-VBO::VBO(GLfloat* vertices, GLsizeiptr size) {
-	glGenBuffers(1, &ID);
-	Bind();
-	glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
-}
-
-VBO::VBO() {
+void VBO::Create() {
 	glGenBuffers(1, &ID);
 	Bind();
 }
@@ -21,7 +15,6 @@ void VBO::Bind() {
 }
 
 
-
 void VBO::Unbind() {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
@@ -31,14 +24,7 @@ void VBO::Delete() {
 }
 
 // EBO class
-// usage ebo = EBO(indices, sizeof(indices));
-EBO::EBO(GLuint* indices, GLsizeiptr size){
-	glGenBuffers(1, &ID);
-	Bind();
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices, GL_STATIC_DRAW);
-}
-
-EBO::EBO() {
+void EBO::Create() {
 	glGenBuffers(1, &ID);
 	Bind();
 }
@@ -61,7 +47,7 @@ void EBO::Delete() {
 }
 
 // VAO class
-VAO::VAO() : ID(), _is_bound(false) {
+void VAO::Create() {
 	glGenVertexArrays(1, &ID);
 }
 
@@ -85,6 +71,7 @@ void VAO::Unbind() {
 
 void VAO::Delete() {
 	glDeleteVertexArrays(1, &ID);
+	_is_bound = false;
 }
 
 Texture2D::Texture2D(const char* image_path, GLenum slot, GLenum format){
