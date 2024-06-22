@@ -15,6 +15,10 @@ public:
 		std::cout << "Gizmo(base class) renderer called. this shouldn't happen" << std::endl;
 	};
 	virtual void Build() {};
+	Gizmo() {
+		vao.Create();
+		vbo.Create();
+	}
 protected:
 	VAO vao;
 	VBO vbo;
@@ -56,6 +60,13 @@ private:
 
 class FacesSelection {
 public:
+
+	FacesSelection() {
+		vao.Create();
+		vbo.Create();
+		ebo.Create();
+	}
+
 	void AddFace(Block* block, int face) {
 		GLuint v = block->PlaceFaceVertexData(vertices, face);
 		idxCnt += block->PlaceFaceIndex(indices, vtxCnt, face);

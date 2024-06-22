@@ -263,6 +263,8 @@ Chunk::ivec3 Chunk::FindBlockIndex(vec3 worldpos) {
 
 Chunk::ivec3 Chunk::WorldToChunkIndex(vec3 worldpos) {
 	Chunk::ivec3 currChunkIdx;
+	//IMPORTANT! maybe you want to offset worldpos by 0.5 in every axis,
+	//because visual chunk boundaries are at -0.5f off the chunk's basepos
 	currChunkIdx.x = (worldpos.x >= 0.0 ? (int)(worldpos.x / Chunk::SZ) : (int)(worldpos.x / Chunk::SZ) - 1);
 	currChunkIdx.y = (worldpos.y >= 0.0 ? (int)(worldpos.y / Chunk::HEIGHT) : (int)(worldpos.y / Chunk::HEIGHT) - 1);
 	currChunkIdx.z = (worldpos.z >= 0.0 ? (int)(worldpos.z / Chunk::SZ) : (int)(worldpos.z / Chunk::SZ) - 1);
@@ -362,14 +364,14 @@ World::World(glm::vec3 spawnPoint) {
 	//initialize worldgen
 	worldgen = TerrainGeneration();
 	//create initial chunks around spawn point
-	currChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
+	centerChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
 }
 
 void World::CreateInitialChunks(glm::vec3 spawnPoint){
-	currChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
+	centerChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
 	//generate initial blocks
-	for (int i = currChunkIdx.x - HVIS_WORLD_SZ; i <= currChunkIdx.x + HVIS_WORLD_SZ; ++i) {
-		for (int k = currChunkIdx.z - HVIS_WORLD_SZ; k <= currChunkIdx.z + HVIS_WORLD_SZ; ++k) {
+	for (int i = centerChunkIdx.x - HVIS_WORLD_SZ; i <= centerChunkIdx.x + HVIS_WORLD_SZ; ++i) {
+		for (int k = centerChunkIdx.z - HVIS_WORLD_SZ; k <= centerChunkIdx.z + HVIS_WORLD_SZ; ++k) {
 			for (int j = -HVIS_WORLD_HEIGHT; j <= HVIS_WORLD_HEIGHT; ++j) {
 				Chunk* chunk = visChunks[{i, j, k}] = findOrCreateChunk({ i, j, k });
 				if(!chunk->isBuilt) chunk->Build();
@@ -378,10 +380,17 @@ void World::CreateInitialChunks(glm::vec3 spawnPoint){
 	}
 }
 
-Chunk* World::CurrentChunk() {
+Chunk* World::CurrentChunk(glm::vec3& position) {
+	glm::ivec3 currChunkIdx = Chunk::WorldToChunkIndex(position);
 	return visChunks[{currChunkIdx.x, currChunkIdx.y, currChunkIdx.z}];
 }
 
+Chunk* World::GetChunkByIndex(const glm::ivec3& idx) {
+	if (visChunks.count({ idx.x, idx.y, idx.z })) {
+		return visChunks[{idx.x, idx.y, idx.z}];
+	}
+	return nullptr;
+}
 //renders all visible chunks
 void World::Render() {
 	for (auto& [cidx, chunk] : visChunks) {
@@ -390,13 +399,13 @@ void World::Render() {
 }
 
 //updates the map of visible chunks, unloading invisible chunks and building newly visible chunks.
-void World::UpdateChunks(glm::vec3 playerPosition) {
+void World::UpdateChunks(glm::vec3& playerPosition) {
 	
 	glm::ivec3 cijk = Chunk::WorldToChunkIndex(playerPosition);
 	int ci = cijk.x, ck = cijk.z;
-	if (ci > currChunkIdx.x + 1 || ci < currChunkIdx.x - 1
-		|| ck > currChunkIdx.z + 1 || ck < currChunkIdx.z - 1) {
-		currChunkIdx = cijk;
+	if (ci > centerChunkIdx.x + 1 || ci < centerChunkIdx.x - 1
+		|| ck > centerChunkIdx.z + 1 || ck < centerChunkIdx.z - 1) {
+		centerChunkIdx = cijk;
 
 		//iterate over visible chunks, 
 		std::vector<p3i> to_remove{};

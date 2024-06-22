@@ -191,15 +191,16 @@ public:
 	std::map<p3i, Chunk*> allChunks;
 	std::map<p3i, Chunk*> visChunks;
 	TerrainGeneration worldgen;
-	glm::ivec3 currChunkIdx{ 0,0,0 };
+	glm::ivec3 centerChunkIdx{ 0,0,0 };
 
 	static constexpr int VIS_WORLD_SZ = 5, HVIS_WORLD_SZ = 2, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
 
 	World(glm::vec3 spawnPoint);
 
 	void CreateInitialChunks(glm::vec3 playerPosition); //creates chunks to start with.
-	Chunk* CurrentChunk(); //Pointer to current chunk.
-	void UpdateChunks(glm::vec3 playerPosition);
+	Chunk* CurrentChunk(glm::vec3& position); //Pointer to current chunk.
+	Chunk* GetChunkByIndex(const glm::ivec3& idx);
+	void UpdateChunks(glm::vec3& playerPosition);
 	void Render();
 
 private:

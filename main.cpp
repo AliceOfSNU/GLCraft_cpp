@@ -38,21 +38,6 @@ float lastFrame = 0.0f;
 
 World world(Camera::MainCamera.position);
 
-void generate_chunk(Chunk* chunk) {
-	//for (int i = 0; i < Chunk::SZ; ++i) {
-	//	for (int k = 0; k < Chunk::SZ; ++k) {
-	//		for (int j = 0; j < Chunk::HEIGHT / 2 + (i+k-8); ++j) {
-	//			Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_GRASS);
-	//			block->pos.x = chunk->basepos.x + i;
-	//			block->pos.z = chunk->basepos.z + k;
-	//			block->pos.y = chunk->basepos.y + j;
-	//			chunk->blockCnt++;
-	//		}
-	//	}
-	//}
-	///generator.GenerateRocks(chunk);
-}
-
 
 int main() {
 	glfwInit();
@@ -71,7 +56,7 @@ int main() {
 	glfwMakeContextCurrent(window);
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetScrollCallback(window, scroll_callback); 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture mouse? set CURSOR_DISABLED/NORMAL
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //capture mouse? set CURSOR_DISABLED/NORMAL
 
 	gladLoadGL();
 	glViewport(0, 0, 800, 800);
@@ -122,11 +107,10 @@ int main() {
 
 		//--------- RENDER
 
-		glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
+		glClearColor(0.37f, 0.23f, 0.67f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		shader.use();
-		//texture
 		arr_tex.Bind();
 
 		//model view projection
@@ -140,9 +124,13 @@ int main() {
 		shader.setMat4f("view", glm::value_ptr(view));
 		shader.setMat4f("proj", glm::value_ptr(proj));
 
+
+		// world update
 		world.UpdateChunks(Camera::MainCamera.position);
 		world.Render();
-		//debug render
+
+
+		//-------- DEBUG
 		solidColorShader.use();
 		solidColorShader.setMat4f("model", glm::value_ptr(model));
 		solidColorShader.setMat4f("view", glm::value_ptr(view));
@@ -174,11 +162,11 @@ int main() {
 
 void testRaycast(FacesSelection& selectedFaces) {
 	glm::vec3 dir = Camera::MainCamera.ScreenPointToRay(mouseX, mouseY);
-	printf("%f \n", glm::length(dir));
 	Ray ray(Camera::MainCamera.position, dir);
 	Debug::DrawRay(ray);
-
-	Chunk* currChunk = world.CurrentChunk();
+	
+	glm::ivec3 currChunkIdx = Chunk::WorldToChunkIndex(Camera::MainCamera.position);
+	Chunk* currChunk = world.GetChunkByIndex(currChunkIdx);
 	if (!currChunk) return;
 
 	glm::ivec3 idx = currChunk->FindBlockIndex(Camera::MainCamera.position);
@@ -213,25 +201,41 @@ void testRaycast(FacesSelection& selectedFaces) {
 	int yface = ((ray.dir.y >= 0) ? Block::Face::BOTTOM : Block::Face::TOP);
 	int zface = ((ray.dir.z >= 0) ? Block::Face::BACK : Block::Face::FRONT);
 	int face = 0, ii = 0;
-	for (int cnt = 0; cnt < 10; ++cnt) {
+	for (int cnt = 0; cnt < 60; ++cnt) {
 		if (xt < yt && xt < zt) {
 			ii = ix + xDir;
-			if (ii < 0 || ii >= Chunk::SZ) break;
+			if (ii < 0 || ii >= Chunk::SZ) {
+				currChunkIdx.x += xDir;
+				currChunk = world.GetChunkByIndex(currChunkIdx);
+				if (!currChunk) break;
+				ii = ix = (ii < 0 ? Chunk::SZ - 1 : 0);
+			}
 			face = xface, ix = ii, xt += xDelta;
 		}
 		else if (yt < zt) {
 			ii = iy + yDir;
-			if (ii < 0 || ii >= Chunk::HEIGHT) break;
+			if (ii < 0 || ii >= Chunk::HEIGHT) {
+				currChunkIdx.y += yDir;
+				currChunk = world.GetChunkByIndex(currChunkIdx);
+				if (!currChunk) break;
+				ii = iy = (ii < 0 ? Chunk::HEIGHT - 1 : 0);
+			}
 			face = yface, iy = ii, yt += yDelta;
 		}
 		else {
 			ii = iz + zDir;
-			if (ii < 0 || ii >= Chunk::SZ) break;
+			if (ii < 0 || ii >= Chunk::SZ) {
+				currChunkIdx.z += zDir;
+				currChunk = world.GetChunkByIndex(currChunkIdx);
+				if (!currChunk) break;
+				ii = iz = (ii < 0 ? Chunk::SZ-1 : 0);
+			}
 			face = zface, iz = ii, zt += zDelta;
 		}
 
-		if (currChunk->grid[ix][iy][iz]) {
+		if (currChunk->grid[ix][iy][iz] != nullptr) {
 			selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
+			break;
 		}
 	}
 	
