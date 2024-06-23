@@ -102,7 +102,7 @@ public:
 	GLuint idxCnt; //number of indices to render(EBO)
 	ivec3 basepos; //the position of minimum x, y, z.
 
-	bool isBuilt;
+	bool isBuilt, requiresRebuild;
 	/*
 	* The vertices of a cube are always numbered as below:
 	* 
@@ -121,14 +121,21 @@ public:
 
 	//main functions
 	void Build();
+	void ReBuild();
 	void Render();
 	void DeleteBuffers();
 
+	//manipulation
+	void DestroyBlockAt(const ivec3& bidx);
+	void PlaceBlockAt(const ivec3& bidx);
+	
 	//utils
 	//testing worldpos lies inside this chunk's boundary
 	bool TestAABB(vec3 worldpos);
 	ivec3 FindBlockIndex(vec3 worldpos);
 	static ivec3 WorldToChunkIndex(vec3 worldpos);
+	ivec3 BlockWorldToGridIdx(const ivec3& worldidx);
+	ivec3 BlockGridToWorldIdx(const ivec3& grididx);
 	//ivec3 ChunkToWorldCoordinate(ivec3 chunkpos);
 
 private:
@@ -200,8 +207,10 @@ public:
 	void CreateInitialChunks(glm::vec3 playerPosition); //creates chunks to start with.
 	Chunk* CurrentChunk(glm::vec3& position); //Pointer to current chunk.
 	Chunk* GetChunkByIndex(const glm::ivec3& idx);
+	Chunk* GetChunkContainingBlock(const glm::ivec3& worldIdx);
 	void UpdateChunks(glm::vec3& playerPosition);
 	void Render();
+	void Build();
 
 private:
 	Chunk* findOrCreateChunk(const p3i& chunkIdx);

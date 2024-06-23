@@ -13,10 +13,11 @@
 #include "camera.h"
 #include "world.h"
 #include "debug.h"
-
+#include "gui.h"
 using namespace std;
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void testRaycast(FacesSelection& selectedFaces);
@@ -28,13 +29,45 @@ bool isKeyboardProcessed[1024] = { 0 };
 Camera Camera::MainCamera = Camera(glm::vec3(4.0f, 1.0f, -4.0f));
 
 //mouse
+bool mouseHeld = false;
 double mouseX, mouseY;
 double lastX = SCREEN_WIDTH / 2.0f, lastY = SCREEN_HEIGHT / 2.0f;
-bool firstMouse = true;
 
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
+
+// active selection
+glm::ivec3 selectedBlockIdx;
+int selectedFace = -1;
+bool selectedBlockExists;
+
+struct Timer {
+	double startTime;
+	double setTime;
+	bool running;
+	double Start() {
+		startTime = glfwGetTime();
+		running = true;
+		cout << "timer started\n";
+		return startTime;
+	}
+	void Stop() {
+		running = false;
+		cout << "timer stopped\n";
+
+	}
+	double GetTime() {
+		return running? (glfwGetTime() - startTime) : -1.0;
+	}
+
+};
+
+struct BlockDestructionTimer:Timer  {
+	static constexpr double DURATION = 2;
+	glm::ivec3 blockIdx;
+} blockDestructionTimer;
+
 
 World world(Camera::MainCamera.position);
 
@@ -55,7 +88,8 @@ int main() {
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetCursorPosCallback(window, mouse_callback);
-	glfwSetScrollCallback(window, scroll_callback); 
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
+	glfwSetScrollCallback(window, scroll_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //capture mouse? set CURSOR_DISABLED/NORMAL
 
 	gladLoadGL();
@@ -64,7 +98,7 @@ int main() {
 
 	FacesSelection selectedFaces;
 	world.CreateInitialChunks(Camera::MainCamera.position);
-
+	CircleFill circleUI(70.f);
 	//create gl texture
 	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 3, GL_RGB);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
@@ -92,16 +126,25 @@ int main() {
 
 		//--------- INPUT
 		processInput(window);
+		testRaycast(selectedFaces);
 
-		//test area
-		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-			isKeyboardProcessed[GLFW_KEY_SPACE] = true;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_RELEASE) {
-			if (isKeyboardProcessed[GLFW_KEY_SPACE]) {
-				testRaycast(selectedFaces);
-				isKeyboardProcessed[GLFW_KEY_SPACE] = false;
+		//block destruction
+		if (mouseHeld && selectedBlockExists) {
+			if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
+				//DestroyBlock(blockDestructionTimer.blockIdx);
+				cout << "timer goes off" << endl;
+				cout << "destroyed block" << blockDestructionTimer.blockIdx.x << ' ' << blockDestructionTimer.blockIdx.y << ' ' << blockDestructionTimer.blockIdx.z << "\n";
+				Chunk* ch = world.GetChunkContainingBlock(selectedBlockIdx);
+				if (ch != nullptr) {
+					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
+					ch->DestroyBlockAt(bidx);
+				}
+				blockDestructionTimer.Start();
+			}
+			else if (selectedBlockIdx != blockDestructionTimer.blockIdx) {
+				cout << "timer reset" << endl;
+				blockDestructionTimer.blockIdx = selectedBlockIdx;
+				blockDestructionTimer.Start();
 			}
 		}
 
@@ -127,8 +170,11 @@ int main() {
 
 		// world update
 		world.UpdateChunks(Camera::MainCamera.position);
+		world.Build();
 		world.Render();
 
+		//-------- UI
+		circleUI.Render(1.0);
 
 		//-------- DEBUG
 		solidColorShader.use();
@@ -139,6 +185,7 @@ int main() {
 		solidColorShader.setVec3f("col", glm::value_ptr(col));
 		Debug::Render();
 		selectedFaces.Render();
+
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -163,7 +210,7 @@ int main() {
 void testRaycast(FacesSelection& selectedFaces) {
 	glm::vec3 dir = Camera::MainCamera.ScreenPointToRay(mouseX, mouseY);
 	Ray ray(Camera::MainCamera.position, dir);
-	Debug::DrawRay(ray);
+	//Debug::DrawRay(ray);
 	
 	glm::ivec3 currChunkIdx = Chunk::WorldToChunkIndex(Camera::MainCamera.position);
 	Chunk* currChunk = world.GetChunkByIndex(currChunkIdx);
@@ -200,8 +247,8 @@ void testRaycast(FacesSelection& selectedFaces) {
 	int xface = ((ray.dir.x >= 0) ? Block::Face::LEFT : Block::Face::RIGHT);
 	int yface = ((ray.dir.y >= 0) ? Block::Face::BOTTOM : Block::Face::TOP);
 	int zface = ((ray.dir.z >= 0) ? Block::Face::BACK : Block::Face::FRONT);
-	int face = 0, ii = 0;
-	for (int cnt = 0; cnt < 60; ++cnt) {
+	int face = -1, ii = 0;
+	for (int cnt = 0; cnt < 20; ++cnt) {
 		if (xt < yt && xt < zt) {
 			ii = ix + xDir;
 			if (ii < 0 || ii >= Chunk::SZ) {
@@ -234,9 +281,28 @@ void testRaycast(FacesSelection& selectedFaces) {
 		}
 
 		if (currChunk->grid[ix][iy][iz] != nullptr) {
-			selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
+			glm::ivec3 idx = currChunk->BlockGridToWorldIdx(glm::ivec3{ix, iy, iz});
+			
+			if (selectedBlockIdx != idx) {
+				cout << "new block selected" << idx.x << ' ' << idx.y << ' ' << idx.z << "\n";
+				glm::ivec3 bidx = currChunk->grid[ix][iy][iz]->pos;
+				cout << "match idx" << bidx.x << ' ' << bidx.y << ' ' << bidx.z << "\n";
+			}
+
+			selectedBlockIdx = idx;
+			selectedFace = face;
+			selectedBlockExists = true;
+			//selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
+
 			break;
 		}
+	}
+
+	if (face == -1) {
+		if (selectedBlockExists) { cout << "block selection off\n"; }
+		selectedFace = -1;
+		selectedBlockExists = false;
+		blockDestructionTimer.Stop();
 	}
 	
 	selectedFaces.Build();
@@ -266,16 +332,36 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 	mouseX = xpos;
 	mouseY = ypos;
 
-	// calculate how much cursor have moved, rotate camera proportional to the value, using ProcessMouseMovement.
-	float xoffset = xpos - lastX;
-	float yoffset = ypos - lastY;
-
+	if (mouseHeld) {
+		//camera movement
+		float dx = xpos - lastX;
+		float dy = ypos - lastY;
+		Camera::MainCamera.ProcessMouseMovement(dx, dy);
+	}
 	lastX = xpos;
 	lastY = ypos;
-
-	Camera::MainCamera.ProcessMouseMovement(xoffset, yoffset);
 }
 
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	static double mouseLastX, mouseLastY;
+	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+		cout << "clicked\n";
+		if (!mouseHeld) { //pressed
+			mouseHeld = true;
+			glfwGetCursorPos(window, &mouseLastX, &mouseLastY);
+
+			if (selectedBlockExists) {
+				blockDestructionTimer.blockIdx = selectedBlockIdx;
+				blockDestructionTimer.Start();
+			}
+		}
+		else { //released
+			mouseHeld = false;
+			blockDestructionTimer.Stop();
+		}
+	}
+	
+}
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)

@@ -96,6 +96,9 @@ public:
     void setVec3f(const char* name, const GLfloat* value_ptr) const {
         glUniform3fv(glGetUniformLocation(ID, name), 1, value_ptr);
     }
+    void setVec2f(const char* name, const GLfloat* value_ptr) const {
+        glUniform2fv(glGetUniformLocation(ID, name), 1, value_ptr);
+    }
 
 private:
     // utility function for checking shader compilation/linking errors.

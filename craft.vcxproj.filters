@@ -62,6 +62,9 @@
     <ClInclude Include="debug.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="gui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="solidcolor.vs">
@@ -80,6 +83,12 @@
       <Filter>Resource Files\shaders</Filter>
     </None>
     <None Include="basic.vs">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="circleui.vert">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="circleui.frag">
       <Filter>Resource Files\shaders</Filter>
     </None>
   </ItemGroup>

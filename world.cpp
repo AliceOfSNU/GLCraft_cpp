@@ -157,7 +157,7 @@ GLuint Block::PlaceFaceData(
 	return idxCnt;
 }
 
-Chunk::Chunk() :blockCnt(0), vtxCnt(0), idxCnt(0), isBuilt(false) { 
+Chunk::Chunk() :blockCnt(0), vtxCnt(0), idxCnt(0), isBuilt(false), requiresRebuild(false) { 
 	basepos = ivec3(0, 0, 0); 
 };
 
@@ -225,6 +225,13 @@ void Chunk::Build() {
 
 }
 
+void Chunk::ReBuild() {
+	if (!requiresRebuild) return;
+	DeleteBuffers();
+	Build();
+	requiresRebuild = false;
+}
+
 void Chunk::DeleteBuffers() {
 	
 	//delete all buffers
@@ -247,6 +254,12 @@ void Chunk::Render() {
 	glDrawElements(GL_TRIANGLES, idxCnt, GL_UNSIGNED_INT, 0);
 }
 
+void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
+	delete grid[bidx.x][bidx.y][bidx.z];
+	grid[bidx.x][bidx.y][bidx.z] = nullptr;
+	requiresRebuild = true;//requires rebuild.
+}
+
 bool Chunk::TestAABB(vec3 worldpos) {
 	//tests if worldpos is inside this chunk's boundary
 	if (worldpos.x >= basepos.x && worldpos.x < basepos.x + SZ &&
@@ -262,6 +275,7 @@ Chunk::ivec3 Chunk::FindBlockIndex(vec3 worldpos) {
 }
 
 Chunk::ivec3 Chunk::WorldToChunkIndex(vec3 worldpos) {
+	worldpos += 0.5;
 	Chunk::ivec3 currChunkIdx;
 	//IMPORTANT! maybe you want to offset worldpos by 0.5 in every axis,
 	//because visual chunk boundaries are at -0.5f off the chunk's basepos
@@ -270,6 +284,28 @@ Chunk::ivec3 Chunk::WorldToChunkIndex(vec3 worldpos) {
 	currChunkIdx.z = (worldpos.z >= 0.0 ? (int)(worldpos.z / Chunk::SZ) : (int)(worldpos.z / Chunk::SZ) - 1);
 	return currChunkIdx;
 }
+
+Chunk::ivec3 Chunk::BlockWorldToGridIdx(const ivec3& worldIdx) {
+	//converts global world-space idx of a block to the local grid idx inside this chunk.
+	//in fact, the computation is chunk-agnostic, nontheless the function is not static
+	//because its counterpart is not static.
+	Chunk::ivec3 ret{};
+	ret.x = worldIdx.x % Chunk::SZ;
+	if (ret.x < 0) ret.x += Chunk::SZ;
+	ret.y = worldIdx.y % Chunk::HEIGHT;
+	if (ret.y < 0) ret.y += Chunk::HEIGHT;
+	ret.z = worldIdx.z% Chunk::SZ;
+	if (ret.z < 0) ret.z += Chunk::SZ;
+
+	return ret;
+}
+
+Chunk::ivec3 Chunk::BlockGridToWorldIdx(const ivec3& gridIdx) {
+	//converts the grid idx of a block in this chunk to the global world-space idx
+	return Chunk::ivec3{ basepos.x + gridIdx.x, basepos.y + gridIdx.y, basepos.z + gridIdx.z };
+}
+
+/// Noise Generator
 
 glm::f64vec2 FractalNoise2D::PerlinNoise2D::simpleNoiseFn(int ix, int iy) {
 	const unsigned w = 8 * sizeof(unsigned);
@@ -322,15 +358,19 @@ double FractalNoise2D::samplePoint(double x, double y) {
 	return result;
 }
 
+
+//-------- Terrain
 void TerrainGeneration::GenerateRocks(Chunk* chunk) {
-	const int base_terrain_offset = 16;
-	const int base_terrain_scale = 40;
+	const int base_terrain_offset = 0;
+	const int base_terrain_scale = 25;
 	for (int i = 0; i < Chunk::SZ; ++i) {
 		for (int k = 0; k < Chunk::SZ; ++k) {
 			int elevation = base_terrain_offset + base_terrain_scale * heightNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
 			for (int j = 0; j < Chunk::HEIGHT; ++j) {
 				if (chunk->basepos.y + j > elevation) break;
-				Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_GRASS);
+				BlockDB::BlockType type = BlockDB::BlockType::BLOCK_DIRT;
+				if (chunk->basepos.y + j == elevation) type = BlockDB::BlockType::BLOCK_GRASS;
+				Block* block = chunk->grid[i][j][k] = new Block(type);
 				block->pos.x = chunk->basepos.x + i;
 				block->pos.z = chunk->basepos.z + k;
 				block->pos.y = chunk->basepos.y + j;
@@ -391,10 +431,27 @@ Chunk* World::GetChunkByIndex(const glm::ivec3& idx) {
 	}
 	return nullptr;
 }
+
+Chunk* World::GetChunkContainingBlock(const glm::ivec3& worldpos) {
+	int cx = (worldpos.x >= 0 ? (int)(worldpos.x / Chunk::SZ) : (int)((worldpos.x+1) / Chunk::SZ) - 1);
+	int cy = (worldpos.y >= 0 ? (int)(worldpos.y / Chunk::HEIGHT) : (int)((worldpos.y+1) / Chunk::HEIGHT) - 1);
+	int cz = (worldpos.z >= 0 ? (int)(worldpos.z / Chunk::SZ) : (int)((worldpos.z+1) / Chunk::SZ) - 1);
+	
+	if (allChunks.count({cx, cy, cz})) return allChunks[{cx, cy, cz}];
+	else return nullptr;
+}
 //renders all visible chunks
 void World::Render() {
 	for (auto& [cidx, chunk] : visChunks) {
 		chunk->Render();
+	}
+}
+
+void World::Build() {
+	//if any visible chunk has modifications,
+	//rebuild it.
+	for (auto& [cidx, chunk] : visChunks) {
+		if(chunk->requiresRebuild) chunk->ReBuild();
 	}
 }
 
@@ -407,7 +464,7 @@ void World::UpdateChunks(glm::vec3& playerPosition) {
 		|| ck > centerChunkIdx.z + 1 || ck < centerChunkIdx.z - 1) {
 		centerChunkIdx = cijk;
 
-		//iterate over visible chunks, 
+		//iterate over visible chunks
 		std::vector<p3i> to_remove{};
 		for (auto& [cidx, chunk] : visChunks) {
 			auto [i, j, k] = cidx;
