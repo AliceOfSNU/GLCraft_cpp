@@ -43,6 +43,7 @@ int selectedFace = -1;
 bool selectedBlockExists;
 
 struct Timer {
+public:
 	double startTime;
 	double setTime;
 	bool running;
@@ -55,7 +56,6 @@ struct Timer {
 	void Stop() {
 		running = false;
 		cout << "timer stopped\n";
-
 	}
 	double GetTime() {
 		return running? (glfwGetTime() - startTime) : -1.0;
@@ -63,9 +63,11 @@ struct Timer {
 
 };
 
-struct BlockDestructionTimer:Timer  {
+struct BlockDestructionTimer:public Timer  {
+public:
 	static constexpr double DURATION = 2;
 	glm::ivec3 blockIdx;
+
 } blockDestructionTimer;
 
 
@@ -129,11 +131,13 @@ int main() {
 		testRaycast(selectedFaces);
 
 		//block destruction
-		if (mouseHeld && selectedBlockExists) {
-			if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
+		if (mouseHeld) {
+			if (!selectedBlockExists){ 
+				if(blockDestructionTimer.running) blockDestructionTimer.Stop();
+			}
+			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
 				//DestroyBlock(blockDestructionTimer.blockIdx);
 				cout << "timer goes off" << endl;
-				cout << "destroyed block" << blockDestructionTimer.blockIdx.x << ' ' << blockDestructionTimer.blockIdx.y << ' ' << blockDestructionTimer.blockIdx.z << "\n";
 				Chunk* ch = world.GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
@@ -141,10 +145,19 @@ int main() {
 				}
 				blockDestructionTimer.Start();
 			}
-			else if (selectedBlockIdx != blockDestructionTimer.blockIdx) {
-				cout << "timer reset" << endl;
-				blockDestructionTimer.blockIdx = selectedBlockIdx;
-				blockDestructionTimer.Start();
+			else if (!blockDestructionTimer.running || selectedBlockIdx != blockDestructionTimer.blockIdx) {
+				//if selected block exists but timer isn't runinng, it should start running.
+				//also, if the selected block changes while mouse is still pressed, timer should restart.
+				Chunk* ch = world.GetChunkContainingBlock(selectedBlockIdx);
+
+				if (ch) {
+					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
+					if (ch->grid[bidx.x][bidx.y][bidx.z]) {
+						blockDestructionTimer.blockIdx = selectedBlockIdx;
+						blockDestructionTimer.Start();
+					}
+				}
+
 			}
 		}
 
@@ -174,8 +187,9 @@ int main() {
 		world.Render();
 
 		//-------- UI
-		circleUI.Render(1.0);
-
+		if (mouseHeld && blockDestructionTimer.running) {
+			circleUI.Render(blockDestructionTimer.GetTime() / BlockDestructionTimer::DURATION, mouseX, mouseY);
+		}
 		//-------- DEBUG
 		solidColorShader.use();
 		solidColorShader.setMat4f("model", glm::value_ptr(model));
@@ -247,7 +261,10 @@ void testRaycast(FacesSelection& selectedFaces) {
 	int xface = ((ray.dir.x >= 0) ? Block::Face::LEFT : Block::Face::RIGHT);
 	int yface = ((ray.dir.y >= 0) ? Block::Face::BOTTOM : Block::Face::TOP);
 	int zface = ((ray.dir.z >= 0) ? Block::Face::BACK : Block::Face::FRONT);
-	int face = -1, ii = 0;
+	int face = -1, ii = 0, found = 0;
+
+	selectedBlockExists = false;
+
 	for (int cnt = 0; cnt < 20; ++cnt) {
 		if (xt < yt && xt < zt) {
 			ii = ix + xDir;
@@ -283,11 +300,9 @@ void testRaycast(FacesSelection& selectedFaces) {
 		if (currChunk->grid[ix][iy][iz] != nullptr) {
 			glm::ivec3 idx = currChunk->BlockGridToWorldIdx(glm::ivec3{ix, iy, iz});
 			
-			if (selectedBlockIdx != idx) {
-				cout << "new block selected" << idx.x << ' ' << idx.y << ' ' << idx.z << "\n";
-				glm::ivec3 bidx = currChunk->grid[ix][iy][iz]->pos;
-				cout << "match idx" << bidx.x << ' ' << bidx.y << ' ' << bidx.z << "\n";
-			}
+			//if (selectedBlockIdx != idx) {
+			//	glm::ivec3 bidx = currChunk->grid[ix][iy][iz]->pos;
+			//}
 
 			selectedBlockIdx = idx;
 			selectedFace = face;
@@ -299,10 +314,8 @@ void testRaycast(FacesSelection& selectedFaces) {
 	}
 
 	if (face == -1) {
-		if (selectedBlockExists) { cout << "block selection off\n"; }
 		selectedFace = -1;
 		selectedBlockExists = false;
-		blockDestructionTimer.Stop();
 	}
 	
 	selectedFaces.Build();
