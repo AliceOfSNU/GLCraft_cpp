@@ -37,7 +37,7 @@ namespace MapGen {
 	template<unsigned int SZ>
 	class WhiteNoise: public Layer<Inputs<Empty>, 1, float, SZ> {
 	public:
-		static Map<float, SZ> Forward();
+		static Map<float, SZ> Forward(const Map<float, 1>& input);
 	};
 
 	template<unsigned int SZ>
@@ -70,6 +70,10 @@ namespace MapGen {
 	template<unsigned int SZ>
 	class GenBiomeLayer : public Layer<Inputs<PreClimateData, OceanMapData>, SZ, BiomeData, SZ> {
 	public:
+
+		static std::map<std::pair<int, int>, Map<BiomeData, SZ>> biomeMapCache;
+		static void Stitch(Map<BiomeData, SZ>& input, Map<BiomeData, SZ>& other, int ioffset, int joffset);
+
 		/// <summary>
 		/// assigns biomes to each cell, based on the temperature and precipitation level
 		/// the basic logic is:

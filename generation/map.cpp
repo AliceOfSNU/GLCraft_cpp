@@ -35,11 +35,11 @@ namespace MapGen {
 	//	std::cout << "move assign" << std::endl;
 	//}
 
-	template<typename MapDataTy, unsigned int SZ>
-	Map<MapDataTy, SZ>::~Map() {
-		for (int i = 0; i <= SZ; ++i) delete[] data[i];
-		delete[] data;
-	}
+	//template<typename MapDataTy, unsigned int SZ>
+	//Map<MapDataTy, SZ>::~Map() {
+	//	for (int i = 0; i <= SZ; ++i) delete[] data[i];
+	//	delete[] data;
+	//}
 
 	//utility function to convert the map data array index to actual world coordinate
 	//all computation is integer.

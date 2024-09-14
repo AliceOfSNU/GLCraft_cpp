@@ -18,20 +18,27 @@ colors = \
         [255, 0, 0],#none
     ]
 
-with open("biomes.txt", 'r') as file:
-    strinput = file.read()
-    llinput = strinput.split(' ')[:-1] #exclude last space
-    mp = np.array([int(x) for x in llinput])
-    sz = 256
-    mp = mp.reshape([sz+1, sz+1])
+sz = 256
+def to_np_img(title: str):
+    with open(title, 'r') as file:
+        strinput = file.read()
+        llinput = strinput.split(' ')[:-1] #exclude last space
+        mp = np.array([int(x) for x in llinput])
+        mp = mp.reshape([sz+1, sz+1])
 
-    img = np.zeros((sz, sz, 3), dtype=int)
-    for i in range(sz):
-        for j in range(sz):
-            img[i,j] = colors[mp[i,j]]
+        img = np.zeros((sz, sz, 3), dtype=int)
+        for i in range(sz):
+            for j in range(sz):
+                img[i,j] = colors[mp[i,j]]
 
-    print(img)
-    plt.imshow(img)
-    plt.show()
-    
+        return img
+
+img0_0 = to_np_img("map0_0.txt")
+img1_0 = to_np_img("map0_4096.txt")
+
+img = np.concatenate([img0_0, img1_0], axis = 1)
+
+plt.imshow(img)
+plt.show()
+        
 

@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <iostream>
+#include <map>
 
 namespace MapGen {
 
@@ -22,7 +23,7 @@ namespace MapGen {
 		//the constructor allocates memory
 		Map(const vec2i& basepos, const int scale);
 		Map();
-		~Map();
+		//~Map();
 		
 
 		//actually, a map of size SZ with hold (1+SZ) rows and (1+SZ) cols of data
@@ -58,8 +59,6 @@ namespace MapGen {
 		int prcpLevel;
 	
 	};
-
-	
 	
 	enum BiomeType {
 		DESERT, RAINFOREST, SHRUBLAND, GRASSLAND, TUNDRA, SNOWLAND, SHALLOW_OCEAN, DEEP_OCEAN, NONE
@@ -94,6 +93,8 @@ namespace MapGen {
 		int varAlt;
 
 	};
+
+
 
 
 }

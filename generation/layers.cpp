@@ -22,11 +22,11 @@ float simpleNoiseFn(int ix, int iy) {
 }
 
 template<unsigned int SZ>
-Map<float, SZ> WhiteNoise<SZ>::Forward() {
-	Map<float, SZ> mp;
+Map<float, SZ> WhiteNoise<SZ>::Forward(const Map<float, 1>& input) {
+	Map<float, SZ> mp(input.basepos, input.scale);
 	for (int i = 0; i <= SZ; ++i) {
 		for (int j = 0; j <= SZ; ++j) {
-			mp.data[i][j] = simpleNoiseFn(i, j);
+			mp.data[i][j] = simpleNoiseFn(input.basepos.x + input.scale * i, input.basepos.y + input.scale * j);
 		}
 	}
 
@@ -61,6 +61,11 @@ Map<Ty, SZ * 2> Zoom<Ty, SZ>::Forward(Map<Ty, SZ>& input) {
 			//mixing is deterministic.
 			float r = simpleNoiseFn(mp.basepos.x + mp.scale * i * 2, mp.basepos.y + mp.scale * (2 * j + 1));
 			mp.data[i * 2][2 * j + 1] = Ty::mix(input.data[i][j], input.data[i][j+1], r);
+
+			if (i == 0U) {
+				mp.data[2 * i + 1][2 * j] = Ty::mix(input.data[i][j], input.data[i + 1][j], r);
+				mp.data[2 * i + 1][2 * j + 1] = Ty::mix(input.data[i][j], input.data[i + 1][j], input.data[i][j + 1], input.data[i + 1][j + 1], r);
+			}
 		}
 	}
 	for (int i = 0; i < SZ; ++i) {
@@ -68,6 +73,11 @@ Map<Ty, SZ * 2> Zoom<Ty, SZ>::Forward(Map<Ty, SZ>& input) {
 			mp.data[2 * i][2 * j] = input.data[i][j];
 			float r = simpleNoiseFn(mp.basepos.x + mp.scale * (2 * i + 1), mp.basepos.y + mp.scale * j * 2);
 			mp.data[2 * i + 1][2 * j] = Ty::mix(input.data[i][j], input.data[i + 1][j], r);
+
+			if (j == 0U) {
+				mp.data[2 * i][2 * j + 1] = Ty::mix(input.data[i][j], input.data[i][j+1], r);
+				mp.data[2 * i + 1][2 * j + 1] = Ty::mix(input.data[i][j], input.data[i + 1][j], input.data[i][j + 1], input.data[i + 1][j + 1], r);
+			}
 		}
 	}
 	mp.data[SZ * 2][SZ * 2] = input.data[SZ][SZ];
@@ -77,11 +87,11 @@ Map<Ty, SZ * 2> Zoom<Ty, SZ>::Forward(Map<Ty, SZ>& input) {
 	for (int i = 1; i < SZ; ++i) {
 		for (int j = 1; j < SZ; ++j) {
 			mp.data[2 * i][2 * j] = input.data[i][j];
-			vec2i worldpos = mp.MapToWorldPoint(2 * i + 1, 2 * j + 1);
-			float r = simpleNoiseFn(worldpos.x, worldpos.y);
-			mp.data[2 * i + 1][2 * j] = Ty::mix(input.data[i][j], input.data[i + 1][j], r);
+			float r = simpleNoiseFn(i, j);
 			mp.data[2 * i][2 * j + 1] = Ty::mix(input.data[i][j], input.data[i][j + 1], r);
+			mp.data[2 * i + 1][2 * j] = Ty::mix(input.data[i][j], input.data[i + 1][j], r);
 			mp.data[2 * i + 1][2 * j + 1] = Ty::mix(input.data[i][j], input.data[i+1][j], input.data[i][j+1], input.data[i+1][j+1], r);
+
 		}
 	}
 
@@ -91,7 +101,7 @@ Map<Ty, SZ * 2> Zoom<Ty, SZ>::Forward(Map<Ty, SZ>& input) {
 template<unsigned int SZ>
 Map<PreClimateData, SZ> GenPreClimateLayer<SZ>::Forward(Map<OceanMapData, SZ>& input) {
 
-	Map<PreClimateData, SZ> mp;
+	Map<PreClimateData, SZ> mp(input.basepos, input.scale);
 
 	using pii = std::pair<int, int>;
 	// 0(dryest) <----> 3(most humid)
@@ -131,7 +141,7 @@ Map<PreClimateData, SZ> GenPreClimateLayer<SZ>::Forward(Map<OceanMapData, SZ>& i
 	}
 	
 	//3. give random temperatures 
-	Map<float, SZ> noise = WhiteNoise<SZ>::Forward();
+	Map<float, SZ> noise = WhiteNoise<SZ>::Forward(Map<float, 1>(input.basepos, input.scale));
 	for (int i = 0; i <= SZ; ++i) {
 		for (int j = 0; j <= SZ; ++j) {
 			mp.data[i][j].tempLevel = std::min(4, std::max(0, (int)(noise.data[i][j] * 4)));
@@ -142,9 +152,37 @@ Map<PreClimateData, SZ> GenPreClimateLayer<SZ>::Forward(Map<OceanMapData, SZ>& i
 }
 
 template<unsigned int SZ>
+std::map<std::pair<int, int>, Map<BiomeData, SZ>> GenBiomeLayer<SZ>::biomeMapCache = {};
+
+template<unsigned int SZ>
+void GenBiomeLayer<SZ>::Stitch(Map<BiomeData, SZ>& input, Map<BiomeData, SZ>& other, int ioffset, int joffset) {
+	if (ioffset < 0) { //top
+		for (int j = 0; j <= SZ; ++j) {
+			input.data[0][j] = other.data[SZ][j];
+		}
+	}
+	else if (ioffset > 0) { //bottom
+		for (int j = 0; j <= SZ; ++j) {
+			input.data[SZ][j] = other.data[0][j];
+		}
+	}
+	else if (joffset < 0) { //left
+		for (int i = 0; i <= SZ; ++i) {
+			input.data[i][0] = other.data[i][SZ];
+		}
+	}
+	else {
+		for (int i = 0; i <= SZ; ++i) { //right
+			input.data[i][SZ] = other.data[i][0];
+		}
+	}
+	return;
+}
+
+template<unsigned int SZ>
 Map<BiomeData, SZ> GenBiomeLayer<SZ>::Forward(Map<PreClimateData, SZ>& climateInput, Map<OceanMapData, SZ>& islandInput) {
-	Map<BiomeData, SZ> mp;
-	Map<float, SZ> noise = WhiteNoise<SZ>::Forward(); //to turn some ocean cells into deep ocean
+	Map<BiomeData, SZ> mp(climateInput.basepos, climateInput.scale);
+	Map<float, SZ> noise = WhiteNoise<SZ>::Forward(Map<float, 1>(climateInput.basepos, climateInput.scale)); //to turn some ocean cells into deep ocean
 
 	for (int i = 0; i <= SZ; ++i) {
 		for (int j = 0; j <= SZ; ++j) {
@@ -189,5 +227,18 @@ Map<BiomeData, SZ> GenBiomeLayer<SZ>::Forward(Map<PreClimateData, SZ>& climateIn
 			}
 		}
 	}
+
+	//stitch together if left or right exists
+	int di[]{ -(int)SZ, 0, (int)SZ, 0 }, dj[]{ 0, (int)SZ, 0, -(int)SZ };
+	for (int dir = 0; dir < 4; ++dir) {
+		std::pair<int, int> idx = { mp.basepos.x + mp.scale * di[dir], mp.basepos.y + mp.scale * dj[dir] };
+		if (biomeMapCache.count(idx)) {
+			Stitch(mp, biomeMapCache[idx], di[dir], dj[dir]);
+		}
+	}
+
+	//save
+	biomeMapCache[{mp.basepos.x, mp.basepos.y}] = mp;
+
 	return mp;
 }
