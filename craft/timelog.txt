@@ -1,0 +1,23 @@
+CUM 03:50
+
+05_24
+01:20
+- setup gl
+- basic shaders and vertex buffers
+
+
+05_25
+02:30
+- going 3D
+- texture shading
+- most basic block(grass block rendering)
+
+05_26
+- finish grass blocks
+- Block Database, add dirt block
+- Array Textures
+
+06_08
+- chunking class design and basic impl
+- rethinking data buffers
+
