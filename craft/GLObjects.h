@@ -4,10 +4,10 @@
 
 /* Hanjun Kim 2024 */
 
-#include<glad/glad.h>
+#include <glad/glad.h>
 #include <stb/stb_image.h>
 #include "shader.h"
-#include<cassert>
+#include <cassert>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>

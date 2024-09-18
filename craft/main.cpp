@@ -50,12 +50,10 @@ public:
 	double Start() {
 		startTime = glfwGetTime();
 		running = true;
-		cout << "timer started\n";
 		return startTime;
 	}
 	void Stop() {
 		running = false;
-		cout << "timer stopped\n";
 	}
 	double GetTime() {
 		return running? (glfwGetTime() - startTime) : -1.0;

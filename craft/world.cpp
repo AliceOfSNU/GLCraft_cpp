@@ -54,11 +54,38 @@ Block::Block(BlockDB::BlockType type) {
 BlockDB::BlockDB() {
 	tbl.resize(BlockType::BLOCK_COUNT);
 	//DATA
-												//ID						 /TEXTUURE FRONT				LEFT						 BACK						RIGHT						TOP							BOTTOM
-	tbl[BlockType::BLOCK_DIRT] = BlockDataRow{ BlockType::BLOCK_DIRT,		 { BlockTextures::DIRT,			BlockTextures::DIRT,		 BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT} };
-	tbl[BlockType::BLOCK_GRASS] = BlockDataRow{ BlockType::BLOCK_GRASS,		 { BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE, BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_TOP,	BlockTextures::DIRT} };
-	//tbl[BlockType::BLOCK_GRASS] = BlockDataRow{ BlockType::BLOCK_SAND,		 { BlockTextures::SAND,			BlockTextures::SAND,		 BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND} };
+													//ID						 /TEXTUURE FRONT				LEFT						 BACK						RIGHT						TOP							BOTTOM
+	tbl[BlockType::BLOCK_DIRT]		= BlockDataRow{ BlockType::BLOCK_DIRT,		 { BlockTextures::DIRT,			BlockTextures::DIRT,		 BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT} };
+	tbl[BlockType::BLOCK_GRASS]		= BlockDataRow{ BlockType::BLOCK_GRASS,		 { BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE, BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_TOP,	BlockTextures::DIRT} };
+	tbl[BlockType::BLOCK_SAND]		= BlockDataRow{ BlockType::BLOCK_SAND,		 { BlockTextures::SAND,			BlockTextures::SAND,		 BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND} };
+	tbl[BlockType::BLOCK_WATER]		= BlockDataRow{ BlockType::BLOCK_WATER,		 {BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE}};
+	tbl[BlockType::BLOCK_GRANITE]	= BlockDataRow{ BlockType::BLOCK_GRANITE,	 { BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE} };
+	tbl[BlockType::BLOCK_SNOW_SOIL]	= BlockDataRow{ BlockType::BLOCK_SNOW_SOIL,	 { BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	 BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	BlockTextures::SNOW,		BlockTextures::DIRT} };
 
+}
+
+BiomeDB::BiomeDB() {
+	using BiomeType = MapGen::BiomeType;
+	using BlockType = BlockDB::BlockType;
+	biomes.resize(BiomeType::BIOME_COUNT);
+
+	//DATA
+	biomes[BiomeType::DESERT].surfaceBlockTypes.push_back(BlockType::BLOCK_SAND);
+	biomes[BiomeType::DESERT].surfaceBlockCnts.push_back(4);
+
+	biomes[BiomeType::GRASSLAND].surfaceBlockTypes = { BlockType::BLOCK_GRASS, BlockType::BLOCK_DIRT };
+	biomes[BiomeType::GRASSLAND].surfaceBlockCnts = { 1, 4 };
+
+	biomes[BiomeType::SHRUBLAND].surfaceBlockTypes = { BlockType::BLOCK_GRASS, BlockType::BLOCK_DIRT };
+	biomes[BiomeType::SHRUBLAND].surfaceBlockCnts = { 1, 4 };
+
+	biomes[BiomeType::RAINFOREST].surfaceBlockTypes = { BlockType::BLOCK_GRASS, BlockType::BLOCK_DIRT };
+	biomes[BiomeType::RAINFOREST].surfaceBlockCnts = { 1, 4 };
+
+	biomes[BiomeType::SNOWLAND].surfaceBlockTypes = { BlockType::BLOCK_SNOW_SOIL, BlockType::BLOCK_DIRT };
+	biomes[BiomeType::SNOWLAND].surfaceBlockCnts = { 1, 4 };
+
+	//END DATA
 }
 
 
@@ -376,28 +403,127 @@ TerrainGeneration::TerrainGeneration() {
 	roughnessNoise.octaves.push_back(0.005f);
 }
 
-void TerrainGeneration::GenerateRocks(Chunk* chunk) {
+void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 	const int base_terrain_offset = 0;
 	const int base_terrain_scale = 40;
 	for (int i = 0; i < Chunk::SZ; ++i) {
 		for (int k = 0; k < Chunk::SZ; ++k) {
 			double roughness = 0.5 + roughnessNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
 			int elevation = base_terrain_offset + base_terrain_scale * roughness * heightNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
-			for (int j = 0; j < Chunk::HEIGHT; ++j) {
+			int j = 0; //height in chunk
+			for (; j < Chunk::HEIGHT; ++j) {
 				if (chunk->basepos.y + j > elevation) break;
-				BlockDB::BlockType type = BlockDB::BlockType::BLOCK_DIRT;
-				if (chunk->basepos.y + j == elevation) type = BlockDB::BlockType::BLOCK_GRASS;
+				BlockDB::BlockType type = BlockDB::BlockType::BLOCK_GRANITE;
+				//if (chunk->basepos.y + j == elevation) type = BlockDB::BlockType::BLOCK_GRASS;
 				Block* block = chunk->grid[i][j][k] = new Block(type);
 				block->pos.x = chunk->basepos.x + i;
 				block->pos.z = chunk->basepos.z + k;
 				block->pos.y = chunk->basepos.y + j;
 				chunk->blockCnt++;
 			}
+			chunk->blockHeight[i][k] = std::min(Chunk::HEIGHT, j);
 		}
 	}
 }
 
 
+void TerrainGeneration::GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp) {
+	// level 8
+	Map<float, 1> baseMp({ basepos.first, basepos.second }, 512); //total map size is gonna be 512 * 8 = 4096 * 4096
+	Map<float, 8> noiseMp = WhiteNoise<8>::Forward(baseMp);
+
+	Map<OceanMapData, 8> bOceanMp8 = GenIslandLayer<8>::Forward(noiseMp);
+
+	// level 16
+	Map<OceanMapData, 16> bOceanMp16 = Zoom<OceanMapData, 8>::Forward(bOceanMp8);
+
+	// level 32
+	Map<OceanMapData, 32> bOceanMp32 = Zoom<OceanMapData, 16>::Forward(bOceanMp16);
+	Map<PreClimateData, 32> climateMp32 = GenPreClimateLayer<32>::Forward(bOceanMp32);
+	Map<BiomeData, 32> biomeMp32 = GenBiomeLayer<32>::Forward(climateMp32, bOceanMp32);
+
+	// level 64
+	Map<BiomeData, 64> biomeMp64 = Zoom<BiomeData, 32>::Forward(biomeMp32);
+	//Map<LandscapeData, 64> landscapeMp64 = LandscapeLayer<64>::Forward(bOceanMp64);
+
+	// level 128
+	Map<BiomeData, 128> biomeMp128 = Zoom<BiomeData, 64>::Forward(biomeMp64);
+	//Map<LandscapeData, 128> landscapeMp128 = Zoom<LandscapeData, 64>::Forward(landscapeMp64);
+
+	//// level 256
+	Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128); //return
+	//Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 128>::Forward(landscapeMp128);
+
+	//// level 512
+	biomeMp = Zoom<BiomeData, 256>::Forward(biomeMp256);
+	//Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 256>::Forward(landscapeMp256);
+
+}
+
+void TerrainGeneration::FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp) {
+	//1. get the map base position
+	pii mapbase = { (int)(basepos.first / MAP_SIZE) * MAP_SIZE,(int)(basepos.second / MAP_SIZE) * MAP_SIZE };
+	mapbase.first -= MAP_SIZE / 2; //so that (0,0) is near the center of the map.
+	mapbase.second -= MAP_SIZE / 2;
+	
+	//2. check cache
+	if (biomeMap.count(mapbase)) {
+		biomeMp = biomeMap[mapbase];
+		return;
+	}
+
+	//3. create map if not exist
+	GenerateMap(mapbase, OUT biomeMp);
+
+	//4. cache the map 
+	biomeMap[mapbase] = biomeMp;
+	return;
+}
+
+void TerrainGeneration::GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biomeMp) {
+	for (int i = 0; i < Chunk::SZ; ++i) {
+		for (int k = 0; k < Chunk::SZ; ++k) {
+			MapGen::vec2i xz = biomeMp.WorldToMapPoint(chunk->basepos.x + i, chunk->basepos.z + k);
+			chunk->blockBiome[i][k] = biomeMp.data[xz.x][xz.y].biomeType;
+		}
+	}
+
+	//TODO: VORONOI zoom
+	return;
+}
+
+void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
+	for (int i = 0; i < Chunk::SZ; ++i) {
+		for (int k = 0; k < Chunk::SZ; ++k) {
+			//double roughness = 0.5 + roughnessNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
+			//1. get replacement data for biome
+			BiomeDB::BiomeDataRow biome = BiomeDB::GetInstance().biomes[chunk->blockBiome[i][k]];
+			int top = chunk->blockHeight[i][k] - 1;
+			for (int b = 0; b < biome.surfaceBlockTypes.size(); ++b) {
+				//2. replace top rock blocks with predefined surface block types
+				BlockDB::BlockType surfType = biome.surfaceBlockTypes[b];
+				int surfDepth = biome.surfaceBlockCnts[b];
+				if (top < 0) break;
+				for (int j = top; j > top-surfDepth && j >= 0 ; --j) {
+					chunk->grid[i][j][k]->blockData = &BlockDB::GetInstance().tbl[(int)surfType];
+				}
+				top -= surfDepth;
+				if (surfDepth < 0) break; //safety
+			}
+		}
+	}
+	return;
+}
+
+void TerrainGeneration::Generate(Chunk* chunk) {
+	BiomeMap_t biomeMp;
+	FindOrCreateMap({ chunk->basepos.x, chunk->basepos.z }, OUT biomeMp);
+	GenerateBiomeFromMap(chunk, biomeMp);
+	GenerateRocks(chunk);
+	ReplaceSurface(chunk);
+}
+
+/// WORLD FUNCTIONS
 Chunk* World::findOrCreateChunk(const p3i& chunkIdx) {
 	if (allChunks.count(chunkIdx)) return allChunks[chunkIdx];
 
@@ -411,7 +537,7 @@ Chunk* World::findOrCreateChunk(const p3i& chunkIdx) {
 	);
 
 	//populate the chunk with blocks data
-	worldgen.GenerateRocks(chunk);
+	worldgen.Generate(chunk);
 
 	allChunks[chunkIdx] = chunk;
 

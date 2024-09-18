@@ -5,6 +5,7 @@
 /* Hanjun Kim 2024 */
 
 #define INOUT
+#define OUT
 
 #include<glad/glad.h>
 #include <stb/stb_image.h>
@@ -18,13 +19,16 @@
 #include <map>
 #include <iostream>
 #include "GLObjects.h"
+#include "map.cpp"
+#include "layers.cpp"
 
 using pii = std::pair<int, int>;
+using namespace MapGen;
 
 class BlockDB {
 public:
 	enum BlockType {
-		BLOCK_GRASS, BLOCK_DIRT, BLOCK_COUNT
+		BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_COUNT
 	};
 
 	//this should be in opposite order
@@ -47,6 +51,27 @@ private:
 	BlockDB();
 	BlockDB(BlockDB const& other) = delete;
 	BlockDB& operator=(BlockDB const& other) = delete;
+};
+
+class BiomeDB {
+public:
+	struct BiomeDataRow {
+		std::vector<int> surfaceBlockCnts;
+		std::vector<BlockDB::BlockType> surfaceBlockTypes;
+		//plantation type, avg tmp, avg prcp, 
+	};
+
+	static BiomeDB& GetInstance() {
+		static BiomeDB instance;
+		return instance;
+	}
+
+	std::vector<BiomeDataRow> biomes;
+
+private:
+	BiomeDB();
+	BiomeDB(BiomeDB const& other) = delete;
+	BiomeDB& operator=(BiomeDB const& other) = delete;
 };
 
 
@@ -96,6 +121,10 @@ public:
 	using vec3 = glm::vec3;
 	static constexpr int SZ = 32, HEIGHT = 32; //a chunk is SZ*HEIGHT*SZ large. the y coordinate is up.
 	Block* grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
+	
+	int blockHeight[SZ][SZ]; //the number of blocks in each column
+	BiomeType blockBiome[SZ][SZ]; //the biome type for each column
+	
 	size_t blockCnt;
 	GLuint vtxCnt; //number of vertices to render(VBO)
 	GLuint idxCnt; //number of indices to render(EBO)
@@ -173,20 +202,16 @@ private:
 MapGeneration class stores and creates maps as they are needed by TerrainGeneration
 It wraps around the ProceduralMap library and provides conversion between the map's scale and world meter units.
 */
-class MapGeneration {
-	using pii = std::tuple<int, int>;
-public:
-	std::map<pii, int> allMaps;
-	int findOrCreateMap(const pii& worldpos);
-};
 
 class TerrainGeneration {
 public:
 	FractalNoise2D heightNoise;
-	//FractalNoise2D detailNoise;
 	FractalNoise2D roughnessNoise;
-
-
+	static const int MAP_SIZE = 512;
+	using BiomeMap_t = Map<BiomeData, MAP_SIZE>;
+	using LandscapeMap_t = Map<OceanMapData, MAP_SIZE>;
+	std::map<pii, BiomeMap_t> biomeMap;
+	std::map<pii, LandscapeMap_t> oceanMap;
 
 	TerrainGeneration();
 
@@ -194,10 +219,41 @@ public:
 	//fills grid with granite up to height sampled from noise
 	void GenerateRocks(Chunk* chunk);
 
-	//replaces top few blocks with biome default surface blocks
-	void GenerateBiomeFill(Chunk* chunk);
+	//10월까지 목표 -> 6개 biome완성
+	//entry point
+	void Generate(Chunk* chunk);
 
+	/// <summary>
+	/// given a world x-z position, outputs the biome map containing that position.
+	/// the base position of the map does not equal the input position.
+	/// thus, to properly index the map, use the utility function provided by the returned map.
+	/// </summary>
+	/// <param name="basepos">the world x-z position. the coordinates must be divisible by the returned map's scale</param>
+	/// <param name="biomeMp">OUT biome map containing the query position</param>
+	void FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp);
+	
+	/// <summary>
+	/// Uses Voronoi zoom to go from the maximum resolution 4x4 of biome map
+	/// to block-wise specification of biome.
+	/// This fills the blockBiome array of the chunk.
+	/// </summary>
+	/// <param name="chunk">the chunk to operate on</param>
+	/// <param name="biomeMp">the map to zoom at</param>
+	void GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biomeMp);
 
+	void GenerateTerrainHeightsFromMap(Chunk* chunk);
+
+	/// <summary>
+	/// Replaces top few blocks of terrain with biome-specific surface blocks.
+	/// For instance, snowland gets 4 soil blocks and 1 snow-covered soil at the top
+	/// </summary>
+	/// <param name="chunk">the chunk to operate on</param>
+	void ReplaceSurface(Chunk* chunk);
+	
+	void GeneratePlantation(Chunk* chunk);
+	
+protected:
+	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp);
 };
 
 class World {

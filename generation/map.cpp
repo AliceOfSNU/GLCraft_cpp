@@ -44,9 +44,13 @@ namespace MapGen {
 	//utility function to convert the map data array index to actual world coordinate
 	//all computation is integer.
 	template<typename MapDataTy, unsigned int SZ>
-	vec2i Map<MapDataTy, SZ>::MapToWorldPoint(int i, int j) {
+	vec2i Map<MapDataTy, SZ>::MapToWorldPoint(int i, int j) const {
 		return { basepos.x + i * scale, basepos.y + j * scale };
 	}
 
+	template<typename MapDataTy, unsigned int SZ>
+	vec2i Map<MapDataTy, SZ>::WorldToMapPoint(int i, int j) const {
+		return { (i - basepos.x) / scale, (j - basepos.y) / scale };
+	}
 
 }

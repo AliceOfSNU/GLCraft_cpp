@@ -34,7 +34,8 @@ namespace MapGen {
 
 		int size() { return SZ; }
 
-		vec2i MapToWorldPoint(int i, int j);
+		vec2i MapToWorldPoint(int i, int j)const;
+		vec2i WorldToMapPoint(int i, int j)const;
 	};
 
 	//the simplest data would just tell apart oceans from land.
@@ -61,7 +62,7 @@ namespace MapGen {
 	};
 	
 	enum BiomeType {
-		DESERT, RAINFOREST, SHRUBLAND, GRASSLAND, TUNDRA, SNOWLAND, SHALLOW_OCEAN, DEEP_OCEAN, NONE
+		DESERT, RAINFOREST, SHRUBLAND, GRASSLAND, TUNDRA, SNOWLAND, SHALLOW_OCEAN, DEEP_OCEAN, NONE, BIOME_COUNT
 	};
 
 	struct BiomeData {
