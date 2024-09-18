@@ -88,6 +88,29 @@ namespace MapGen {
 		static Map<BiomeData, SZ> Forward(Map<PreClimateData, SZ>& climateInput, Map<OceanMapData, SZ>& islandInput);
 	};
 
+	template<unsigned int SZ>
+	class GenLandscapeLayer : public Layer<OceanMapData, SZ, LandscapeData, SZ> {
+	public:
 
+		/// <summary>
+		/// assigns landscape generation parameters for each cell, 
+		/// the parameters will decide how much and at which scale block heights may vary.
+		/// special treatment for ocean biomes to clamp maximum height below sea level=0
+		/// </summary>
+		static Map<LandscapeData, SZ> Forward(Map<OceanMapData, SZ>& input);
+
+	};
+
+	template<unsigned int SZ>
+	class GenShorelineLayer : public Layer<Inputs<LandscapeData, BiomeData>, SZ, LandscapeData, SZ> {
+	public:
+
+		/// <summary>
+		/// find the boundary between land and ocean,
+		/// and limit the abs scale there to a small value(~4) so that a smooth shoreline exists
+		/// </summary>
+		static Map<LandscapeData, SZ> Forward(Map<LandscapeData, SZ>& lscapeInput, Map<BiomeData, SZ>& biomeInput);
+
+	};
 }
 #endif

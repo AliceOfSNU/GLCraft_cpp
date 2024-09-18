@@ -90,9 +90,23 @@ namespace MapGen {
 	};
 
 	struct LandscapeData {
-		int avgAlt;
-		int varAlt;
+		int maxAbsScale = 0;
+		float roughness = 0.0f;
 
+		static LandscapeData mix(const LandscapeData& a, const LandscapeData& b, float r) {
+			LandscapeData data;
+			data.maxAbsScale = (a.maxAbsScale + b.maxAbsScale) / 2;
+			data.roughness = (a.roughness + b.roughness) / 2.0f;
+
+			return data;
+		}
+
+		static LandscapeData mix(const LandscapeData& a, const LandscapeData& b, const LandscapeData& c, const LandscapeData& d, float r) {
+			LandscapeData data;
+			data.maxAbsScale = (a.maxAbsScale + b.maxAbsScale + c.maxAbsScale + d.maxAbsScale) / 4;
+			data.roughness = (a.roughness + b.roughness + c.roughness + d.roughness) / 4.0f;
+			return data;
+		}
 	};
 
 

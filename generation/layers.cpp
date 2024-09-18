@@ -244,4 +244,45 @@ namespace MapGen {
 		return mp;
 	}
 
+	template<unsigned int SZ>
+	Map<LandscapeData, SZ> GenLandscapeLayer<SZ>::Forward(Map<OceanMapData, SZ>& input) {
+		//init maxAbsScale and roughness from two independently-scaled white noise
+		Map<LandscapeData, SZ> mp(input.basepos, input.scale);
+		const int roughness_scale = 64;//larger this value, the slower the variation in roughness map
+		for (int i = 0; i <= SZ; ++i) {
+			for (int j = 0; j <= SZ; ++j) {
+				LandscapeData & celldata = mp.data[i][j];
+				celldata.maxAbsScale = 64 * simpleNoiseFn(mp.basepos.x + mp.scale * i, mp.basepos.y + mp.scale * j);
+				celldata.roughness = simpleNoiseFn((mp.basepos.x + mp.scale * i)/roughness_scale, (mp.basepos.y + mp.scale*j)/roughness_scale);
+			}
+		}
+
+		return mp;
+	}
+
+	template<unsigned int SZ>
+	Map<LandscapeData, SZ> GenShorelineLayer<SZ>::Forward(Map<LandscapeData, SZ>& lscapeInput, Map<BiomeData, SZ>& biomeInput) {
+		for (int i = 0; i <= SZ; ++i) {
+			for (int j = 0; j <= SZ; ++j) {
+				int di[]{ -1, -1, -1, 0, 0, 1, 1, 1 }, dj[]{ -1, 0, 1, -1, 1, -1, 0, 1 };
+				bool isLand = biomeInput.data[i][j].biomeType != BiomeType::SHALLOW_OCEAN && biomeInput.data[i][j].biomeType != BiomeType::DEEP_OCEAN;
+				bool isShore = false;
+				for (int dir = 0; dir < 8; ++dir) {
+					int ni = i + di[dir], nj = j + dj[dir];
+					if (ni < 0 || ni > SZ || nj < 0 || nj > SZ) continue;
+					bool isMoreLand = biomeInput.data[ni][nj].biomeType != BiomeType::SHALLOW_OCEAN && biomeInput.data[ni][nj].biomeType != BiomeType::DEEP_OCEAN;
+					if (isLand ^ isMoreLand) {
+						isShore = true; break;
+					}
+				}
+				if (isShore) {
+					//limit absolute scale at shore to 4
+					lscapeInput.data[i][j].maxAbsScale = 4;
+				}
+			}
+		}
+
+		return lscapeInput;
+	}
+
 }
