@@ -416,7 +416,8 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 			// invert the elevation if ocean
 			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
 			if (isOcean) {
-				elevation = std::min(0, -elevation);
+				elevation = std::min(elevation, -elevation);
+				elevation = std::min(elevation, -1);
 			}
 			
 			int j = 0; //height in chunk
@@ -434,7 +435,7 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 			int jsurf= j;
 			if (isOcean) {
 				//fill up to water level = 0
-				for (; chunk->basepos.y + j < 0 && j < Chunk::HEIGHT; ++j) {
+				for (; chunk->basepos.y + j <= 0 && j < Chunk::HEIGHT; ++j) {
 					Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_WATER);
 					block->pos.x = chunk->basepos.x + i;
 					block->pos.z = chunk->basepos.z + k;

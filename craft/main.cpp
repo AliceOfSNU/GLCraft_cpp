@@ -100,7 +100,7 @@ int main() {
 	world.CreateInitialChunks(Camera::MainCamera.position);
 	CircleFill circleUI(70.f);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 7, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 13, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
