@@ -58,9 +58,12 @@ BlockDB::BlockDB() {
 	tbl[BlockType::BLOCK_DIRT]		= BlockDataRow{ BlockType::BLOCK_DIRT,		 { BlockTextures::DIRT,			BlockTextures::DIRT,		 BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT} };
 	tbl[BlockType::BLOCK_GRASS]		= BlockDataRow{ BlockType::BLOCK_GRASS,		 { BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE, BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_TOP,	BlockTextures::DIRT} };
 	tbl[BlockType::BLOCK_SAND]		= BlockDataRow{ BlockType::BLOCK_SAND,		 { BlockTextures::SAND,			BlockTextures::SAND,		 BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND} };
-	tbl[BlockType::BLOCK_WATER]		= BlockDataRow{ BlockType::BLOCK_WATER,		 {BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE}};
+	tbl[BlockType::BLOCK_WATER]		= BlockDataRow{ BlockType::BLOCK_WATER,		 { BlockTextures::WATER,		BlockTextures::WATER,		 BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER}};
 	tbl[BlockType::BLOCK_GRANITE]	= BlockDataRow{ BlockType::BLOCK_GRANITE,	 { BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE} };
 	tbl[BlockType::BLOCK_SNOW_SOIL]	= BlockDataRow{ BlockType::BLOCK_SNOW_SOIL,	 { BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	 BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	BlockTextures::SNOW,		BlockTextures::DIRT} };
+	tbl[BlockType::BLOCK_BIRCH_LOG] = BlockDataRow{ BlockType::BLOCK_BIRCH_LOG,	 { BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	 BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_TOP,	BlockTextures::BIRCH_TOP} };
+	tbl[BlockType::BLOCK_ELM_LOG]	= BlockDataRow{ BlockType::BLOCK_ELM_LOG,	 { BlockTextures::ELM_SIDE,		BlockTextures::ELM_SIDE,	 BlockTextures::ELM_SIDE,	BlockTextures::ELM_SIDE,	BlockTextures::ELM_TOP,		BlockTextures::ELM_TOP} };
+	tbl[BlockType::BLOCK_FOILAGE]	= BlockDataRow{ BlockType::BLOCK_FOILAGE,	 { BlockTextures::FOILAGE,		BlockTextures::FOILAGE,		 BlockTextures::FOILAGE,	BlockTextures::FOILAGE,		BlockTextures::FOILAGE,		BlockTextures::FOILAGE} };
 
 }
 
@@ -410,6 +413,12 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 		for (int k = 0; k < Chunk::SZ; ++k) {
 			double roughness = 0.5 + roughnessNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
 			int elevation = base_terrain_offset + base_terrain_scale * roughness * heightNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
+			// invert the elevation if ocean
+			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
+			if (isOcean) {
+				elevation = std::min(0, -elevation);
+			}
+			
 			int j = 0; //height in chunk
 			for (; j < Chunk::HEIGHT; ++j) {
 				if (chunk->basepos.y + j > elevation) break;
@@ -421,7 +430,19 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 				block->pos.y = chunk->basepos.y + j;
 				chunk->blockCnt++;
 			}
-			chunk->blockHeight[i][k] = std::min(Chunk::HEIGHT, j);
+
+			int jsurf= j;
+			if (isOcean) {
+				//fill up to water level = 0
+				for (; chunk->basepos.y + j < 0 && j < Chunk::HEIGHT; ++j) {
+					Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_WATER);
+					block->pos.x = chunk->basepos.x + i;
+					block->pos.z = chunk->basepos.z + k;
+					block->pos.y = chunk->basepos.y + j;
+					chunk->blockCnt++;
+				}
+			}
+			chunk->blockHeight[i][k] = std::min(Chunk::HEIGHT, jsurf); //holds ocean floor value for water
 		}
 	}
 }
@@ -498,6 +519,9 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 			//double roughness = 0.5 + roughnessNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
 			//1. get replacement data for biome
 			BiomeDB::BiomeDataRow biome = BiomeDB::GetInstance().biomes[chunk->blockBiome[i][k]];
+			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
+			if (isOcean) continue; //do not replace surface for ocean floors
+
 			int top = chunk->blockHeight[i][k] - 1;
 			for (int b = 0; b < biome.surfaceBlockTypes.size(); ++b) {
 				//2. replace top rock blocks with predefined surface block types
@@ -510,6 +534,7 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 				top -= surfDepth;
 				if (surfDepth < 0) break; //safety
 			}
+
 		}
 	}
 	return;

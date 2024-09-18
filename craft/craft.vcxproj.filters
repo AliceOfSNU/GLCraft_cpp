@@ -22,6 +22,9 @@
     <Filter Include="Resource Files\textures">
       <UniqueIdentifier>{834c40bb-64c0-4f10-be5e-e4007c057092}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Entities">
+      <UniqueIdentifier>{02d77f08-1515-44a5-8b34-d68a358474cb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c">
