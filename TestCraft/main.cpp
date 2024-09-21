@@ -68,53 +68,45 @@ int main()
     std::cout << "Hello World!\n";
 
 	//all intermediate maps must be deleted 
-	for (int ystart : {0}) {
+	for (int ystart : {0, -512*8}) {
 
 		// level 8
-		Map<float, 1> baseMp({0, ystart }, 256); //total map size is gonna be 512 * 8 = 4096 * 4096
+		Map<float, 1> baseMp({ 0, ystart }, 512); //total map size is gonna be 512 * 8 = 4096 * 4096
 		Map<float, 8> noiseMp = WhiteNoise<8>::Forward(baseMp);
 
 		Map<OceanMapData, 8> bOceanMp8 = GenIslandLayer<8>::Forward(noiseMp);
-		std::cout << "Mp8: " << bOceanMp8.scale << std::endl;
+
 		// level 16
 		Map<OceanMapData, 16> bOceanMp16 = Zoom<OceanMapData, 8>::Forward(bOceanMp8);
 		Map<LandscapeData, 16> landscapeMp16 = GenLandscapeLayer<16>::Forward(bOceanMp16);
-		std::cout << "Mp16: " << bOceanMp16.scale << std::endl;
 
 		// level 32
 		Map<OceanMapData, 32> bOceanMp32 = Zoom<OceanMapData, 16>::Forward(bOceanMp16);
+		Map<PreClimateData, 32> climateMp32 = GenPreClimateLayer<32>::Forward(bOceanMp32);
+		Map<BiomeData, 32> biomeMp32 = GenBiomeLayer<32>::Forward(climateMp32, bOceanMp32);
 		Map<LandscapeData, 32> landscapeMp32 = Zoom<LandscapeData, 16>::Forward(landscapeMp16);
-		std::cout << "Mp32: " << bOceanMp32.scale << std::endl;
 
 		// level 64
-		Map<OceanMapData, 64> bOceanMp64 = Zoom<OceanMapData, 32>::Forward(bOceanMp32);
-		Map<PreClimateData, 64> climateMp64 = GenPreClimateLayer<64>::Forward(bOceanMp64);
-		Map<BiomeData, 64> biomeMp64 = GenBiomeLayer<64>::Forward(climateMp64, bOceanMp64);
-		Map<LandscapeData, 64> landscapeMp64 = Zoom<LandscapeData,32>::Forward(landscapeMp32);
-		std::cout << "Mp64: " << biomeMp64.scale << std::endl;
+		Map<BiomeData, 64> biomeMp64 = Zoom<BiomeData, 32>::Forward(biomeMp32);
+		Map<LandscapeData, 64> landscapeMp64 = Zoom<LandscapeData, 32>::Forward(landscapeMp32);
 
 		// level 128
 		Map<BiomeData, 128> biomeMp128 = Zoom<BiomeData, 64>::Forward(biomeMp64);
 		Map<LandscapeData, 128> landscapeMp128 = Zoom<LandscapeData, 64>::Forward(landscapeMp64);
+		
 		landscapeMp128 = GenShorelineLayer<128>::Forward(landscapeMp128, biomeMp128);
-		std::cout << "Mp128: " << biomeMp128.scale << std::endl;
 
 		//// level 256
-		Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128);
+		Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128); //return
 		Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 128>::Forward(landscapeMp128);
-		std::cout << "Mp256: " << biomeMp256.scale << std::endl;
 
 		//// level 512
-		Map<BiomeData, 512> biomeMp512 = Zoom<BiomeData, 256>::Forward(biomeMp256);
-		Map<LandscapeData, 512> landscapeMp512 = Zoom<LandscapeData, 256>::Forward(landscapeMp256);
-		std::cout << "Mp512: " << biomeMp512.scale << std::endl;
-
-		invertOcean(landscapeMp512, biomeMp512);
+		Map < BiomeData, 512> biomeMp512 = Zoom<BiomeData, 256>::Forward(biomeMp256);
+		Map < LandscapeData, 512> landscapeMp512 = Zoom<LandscapeData, 256>::Forward(landscapeMp256);
 		saveMap(biomeMp512, "map0_" + std::to_string(ystart) +  ".txt");
-		saveMap(landscapeMp512, "landscape_" + std::to_string(ystart) + ".txt");
+		//saveMap(landscapeMp512, "landscape_" + std::to_string(ystart) + ".txt");
 	}
 
-	
 	return 0;
 }
 

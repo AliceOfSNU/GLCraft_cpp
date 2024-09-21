@@ -1,6 +1,6 @@
 #include "world.h"
 
-/* Hanjun Kim 2024 */
+/* AliceOfSNU 2024 */
 
 float Block::vertexPositions[8][3] = {
 	{-0.5f, -0.5f, 0.5f},//-X-Y+Z 0
@@ -87,6 +87,9 @@ BiomeDB::BiomeDB() {
 
 	biomes[BiomeType::SNOWLAND].surfaceBlockTypes = { BlockType::BLOCK_SNOW_SOIL, BlockType::BLOCK_DIRT };
 	biomes[BiomeType::SNOWLAND].surfaceBlockCnts = { 1, 4 };
+
+	biomes[BiomeType::TUNDRA].surfaceBlockTypes = { BlockType::BLOCK_SNOW_SOIL, BlockType::BLOCK_DIRT };
+	biomes[BiomeType::TUNDRA].surfaceBlockCnts = { 1, 4 };
 
 	//END DATA
 }
@@ -379,16 +382,25 @@ double FractalNoise2D::PerlinNoise2D::samplePoint(double x, double y) {
 	return lerp(ix0, ix1, sy);
 }
 
+//double FractalNoise2D::samplePoint(double x, double y) {
+//	double amount = 1.0;
+//	double result = 0.0;
+//	for (double f : octaves) {
+//		result += amount * perlin.samplePoint(f * x, f * y);
+//		amount *= persistance;
+//	}
+//	return result;
+//}
+
 double FractalNoise2D::samplePoint(double x, double y) {
 	double amount = 1.0;
 	double result = 0.0;
 	for (double f : octaves) {
-		result += amount * perlin.samplePoint(f * x, f * y);
+		result += perlin.samplePoint(f * x, f * y);
 		amount *= persistance;
 	}
 	return result;
 }
-
 
 //-------- Terrain
 
@@ -404,6 +416,11 @@ TerrainGeneration::TerrainGeneration() {
 	heightNoise.octaves.push_back(0.05f);
 	heightNoise.octaves.push_back(0.1f);
 	roughnessNoise.octaves.push_back(0.005f);
+
+	slowNoise.octaves.push_back(0.01f);
+	slowNoise.persistance = 0.5;
+	fastNoise.octaves.push_back(0.03f);
+	fastNoise.persistance = 0.5;
 }
 
 void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
@@ -411,14 +428,16 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 	const int base_terrain_scale = 40;
 	for (int i = 0; i < Chunk::SZ; ++i) {
 		for (int k = 0; k < Chunk::SZ; ++k) {
-			double roughness = 0.5 + roughnessNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
-			int elevation = base_terrain_offset + base_terrain_scale * roughness * heightNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
+			//double roughness = 0.5 + roughnessNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
+			//int elevation = base_terrain_offset + base_terrain_scale * roughness * heightNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
+			int elevation = chunk->blockHeight[i][k];
+
 			// invert the elevation if ocean
 			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
-			if (isOcean) {
-				elevation = std::min(elevation, -elevation);
-				elevation = std::min(elevation, -1);
-			}
+			//if (isOcean) {
+			//	elevation = std::min(elevation, -elevation);
+			//	elevation = std::min(elevation, -1);
+			//}
 			
 			int j = 0; //height in chunk
 			for (; j < Chunk::HEIGHT; ++j) {
@@ -448,57 +467,76 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 	}
 }
 
+template<unsigned int SZ>
+void ASSERT_VALID_MAP(Map<BiomeData, SZ> mp) {
+	for (int i = 0; i <= SZ; ++i) {
+		for (int j = 0; j <= SZ; ++j) {
+			int val = (int)mp.data[i][j].biomeType;
+			if (val < 0 || val >= BiomeType::BIOME_COUNT) {
+				throw std::out_of_range("Biome Map data has corrupted value");
+			}
+		}
+	}
+}
 
-void TerrainGeneration::GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp) {
+void TerrainGeneration::GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp) {
 	// level 8
-	Map<float, 1> baseMp({ basepos.first, basepos.second }, 512); //total map size is gonna be 512 * 8 = 4096 * 4096
+	Map<float, 1> baseMp({ basepos.first, basepos.second }, MAP_SIZE); //total map size is gonna be 512 * 8 = 4096 * 4096
 	Map<float, 8> noiseMp = WhiteNoise<8>::Forward(baseMp);
 
 	Map<OceanMapData, 8> bOceanMp8 = GenIslandLayer<8>::Forward(noiseMp);
 
 	// level 16
 	Map<OceanMapData, 16> bOceanMp16 = Zoom<OceanMapData, 8>::Forward(bOceanMp8);
+	Map<LandscapeData, 16> landscapeMp16 = GenLandscapeLayer<16>::Forward(bOceanMp16);
 
 	// level 32
 	Map<OceanMapData, 32> bOceanMp32 = Zoom<OceanMapData, 16>::Forward(bOceanMp16);
 	Map<PreClimateData, 32> climateMp32 = GenPreClimateLayer<32>::Forward(bOceanMp32);
 	Map<BiomeData, 32> biomeMp32 = GenBiomeLayer<32>::Forward(climateMp32, bOceanMp32);
+	Map<LandscapeData, 32> landscapeMp32 = Zoom<LandscapeData, 16>::Forward(landscapeMp16);
 
 	// level 64
 	Map<BiomeData, 64> biomeMp64 = Zoom<BiomeData, 32>::Forward(biomeMp32);
-	//Map<LandscapeData, 64> landscapeMp64 = LandscapeLayer<64>::Forward(bOceanMp64);
+	Map<LandscapeData, 64> landscapeMp64 = Zoom<LandscapeData, 32>::Forward(landscapeMp32);
 
 	// level 128
 	Map<BiomeData, 128> biomeMp128 = Zoom<BiomeData, 64>::Forward(biomeMp64);
-	//Map<LandscapeData, 128> landscapeMp128 = Zoom<LandscapeData, 64>::Forward(landscapeMp64);
+	Map<LandscapeData, 128> landscapeMp128 = Zoom<LandscapeData, 64>::Forward(landscapeMp64);
+	landscapeMp128 = GenShorelineLayer<128>::Forward(landscapeMp128, biomeMp128);
 
 	//// level 256
 	Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128); //return
-	//Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 128>::Forward(landscapeMp128);
+	Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 128>::Forward(landscapeMp128);
 
 	//// level 512
 	biomeMp = Zoom<BiomeData, 256>::Forward(biomeMp256);
-	//Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 256>::Forward(landscapeMp256);
+	lscapeMp = Zoom<LandscapeData, 256>::Forward(landscapeMp256);
 
+	ASSERT_VALID_MAP(biomeMp);
+	return;
 }
 
-void TerrainGeneration::FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp) {
+void TerrainGeneration::FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp) {
 	//1. get the map base position
-	pii mapbase = { (int)(basepos.first / MAP_SIZE) * MAP_SIZE,(int)(basepos.second / MAP_SIZE) * MAP_SIZE };
-	mapbase.first -= MAP_SIZE / 2; //so that (0,0) is near the center of the map.
-	mapbase.second -= MAP_SIZE / 2;
+	//base position is in world space
+	pii mapbase = { floor(static_cast<float>(basepos.first) / WS_MAP_SPAN) * WS_MAP_SPAN,floor(static_cast<float>(basepos.second) / WS_MAP_SPAN) * WS_MAP_SPAN };
+	//mapbase.first -= MAP_SIZE / 2; //so that (0,0) is near the center of the map.
+	//mapbase.second -= MAP_SIZE / 2;
 	
 	//2. check cache
 	if (biomeMap.count(mapbase)) {
 		biomeMp = biomeMap[mapbase];
+		lscapeMp = landscapeMap[mapbase];
 		return;
 	}
 
 	//3. create map if not exist
-	GenerateMap(mapbase, OUT biomeMp);
+	GenerateMap(mapbase, OUT biomeMp, OUT lscapeMp);
 
 	//4. cache the map 
 	biomeMap[mapbase] = biomeMp;
+	landscapeMap[mapbase] = lscapeMp;
 	return;
 }
 
@@ -507,10 +545,41 @@ void TerrainGeneration::GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biom
 		for (int k = 0; k < Chunk::SZ; ++k) {
 			MapGen::vec2i xz = biomeMp.WorldToMapPoint(chunk->basepos.x + i, chunk->basepos.z + k);
 			chunk->blockBiome[i][k] = biomeMp.data[xz.x][xz.y].biomeType;
+
+			if (biomeMp.data[xz.x][xz.y].biomeType < 0 || biomeMp.data[xz.x][xz.y].biomeType >= BiomeType::BIOME_COUNT) {
+				throw std::out_of_range("chunk->blockBiome has corrupted values");
+			}
 		}
 	}
 
 	//TODO: VORONOI zoom
+	return;
+}
+
+void TerrainGeneration::GenerateTerrainHeightsFromMap(Chunk* chunk, const LandscapeMap_t lscapeMp, const BiomeMap_t biomeMp) {
+
+	for (int i = 0; i < Chunk::SZ; ++i) {
+		for (int k = 0; k < Chunk::SZ; ++k) {
+			int x = chunk->basepos.x + i, z = chunk->basepos.z + k;
+
+			MapGen::vec2i xzb = biomeMp.WorldToMapPoint(x, z);
+			MapGen::vec2f xzls = lscapeMp.WorldToMapPointF(x, z);
+
+			//1. sample from perlin noise and interpolate
+			LandscapeData lsdata = lscapeMp.SamplePointSubpixel(xzls.x, xzls.y);
+			float alpha = lsdata.roughness;
+			int scale = lsdata.maxAbsScale;
+			float h = alpha * fastNoise.samplePoint(x, z) + (1.0f - alpha) * slowNoise.samplePoint(x, z);
+			
+			//2. invert elevation if ocean
+			bool isOcean = biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::SHALLOW_OCEAN || biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::DEEP_OCEAN;
+			if (isOcean)
+				chunk->blockHeight[i][k] = std::min(-1, static_cast<int>(scale * (-1.0f + h)));
+			else
+				chunk->blockHeight[i][k] = scale * (1.0f + h);
+		}
+	}
+
 	return;
 }
 
@@ -543,8 +612,13 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 
 void TerrainGeneration::Generate(Chunk* chunk) {
 	BiomeMap_t biomeMp;
-	FindOrCreateMap({ chunk->basepos.x, chunk->basepos.z }, OUT biomeMp);
+	LandscapeMap_t lscapeMp;
+	FindOrCreateMap({ chunk->basepos.x, chunk->basepos.z }, OUT biomeMp, OUT lscapeMp);
+	if (chunk->basepos.x == 352 && chunk->basepos.z == 0) {
+		std::cout << "here" << std::endl;
+	}
 	GenerateBiomeFromMap(chunk, biomeMp);
+	GenerateTerrainHeightsFromMap(chunk, lscapeMp, biomeMp);
 	GenerateRocks(chunk);
 	ReplaceSurface(chunk);
 }

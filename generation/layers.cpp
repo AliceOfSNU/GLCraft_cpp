@@ -19,7 +19,8 @@ namespace MapGen {
 		a *= 2048419325;
 		float random = a * (3.14159265 / ~(~0u >> 1));
 
-		return 0.5f + 0.5f * sin(random);
+		//return 0.5f + 0.5f * sin(random);
+		return fmodf(random, 1.0f);
 	}
 
 	template<unsigned int SZ>
@@ -41,7 +42,7 @@ namespace MapGen {
 		Map<OceanMapData, SZ> mp(input.basepos, input.scale);
 		for (int i = 0; i <= SZ; ++i) {
 			for (int j = 0; j <= SZ; ++j) {
-				mp.data[i][j].isLand = (input.data[i][j] > 0.4f);
+				mp.data[i][j].isLand = (input.data[i][j] > 0.3f);
 			}
 		}
 		//move constructor

@@ -207,11 +207,14 @@ class TerrainGeneration {
 public:
 	FractalNoise2D heightNoise;
 	FractalNoise2D roughnessNoise;
+
+	FractalNoise2D slowNoise, fastNoise;
 	static const int MAP_SIZE = 512;
+	static const int WS_MAP_SPAN = 512*8;
 	using BiomeMap_t = Map<BiomeData, MAP_SIZE>;
-	using LandscapeMap_t = Map<OceanMapData, MAP_SIZE>;
+	using LandscapeMap_t = Map<LandscapeData, MAP_SIZE>;
 	std::map<pii, BiomeMap_t> biomeMap;
-	std::map<pii, LandscapeMap_t> oceanMap;
+	std::map<pii, LandscapeMap_t> landscapeMap;
 
 	TerrainGeneration();
 
@@ -230,7 +233,8 @@ public:
 	/// </summary>
 	/// <param name="basepos">the world x-z position. the coordinates must be divisible by the returned map's scale</param>
 	/// <param name="biomeMp">OUT biome map containing the query position</param>
-	void FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp);
+	/// <param name="biomeMp">OUT landscape map containing the query position</param>
+	void FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
 	
 	/// <summary>
 	/// Uses Voronoi zoom to go from the maximum resolution 4x4 of biome map
@@ -241,7 +245,15 @@ public:
 	/// <param name="biomeMp">the map to zoom at</param>
 	void GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biomeMp);
 
-	void GenerateTerrainHeightsFromMap(Chunk* chunk);
+	/// <summary>
+	/// uses landscape paramters (absolute scale and roughness)
+	/// to modulate and combine to perlin noises and interpolate to get
+	/// block-wise terrain height
+	/// </summary>
+	/// <param name="chunk">chunk to operate on</param>
+	/// <param name="lscapeMp">holds generation paramters</param>
+	/// <param name="biomeMp">used to invert elevation to negative number for ocean</param>
+	void GenerateTerrainHeightsFromMap(Chunk* chunk, const LandscapeMap_t lscapeMp, const BiomeMap_t biomeMp);
 
 	/// <summary>
 	/// Replaces top few blocks of terrain with biome-specific surface blocks.
@@ -253,7 +265,7 @@ public:
 	void GeneratePlantation(Chunk* chunk);
 	
 protected:
-	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp);
+	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
 };
 
 class World {

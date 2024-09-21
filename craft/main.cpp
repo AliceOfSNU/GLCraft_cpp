@@ -335,6 +335,10 @@ void processInput(GLFWwindow* window)
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		Camera::MainCamera.ProcessKeyboard(RIGHT, deltaTime);
 
+	//DEBUG MODE INPUT
+	if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+		cout << Camera::MainCamera.position.r << ", " << Camera::MainCamera.position.g << ", " << Camera::MainCamera.position.b << "\n";
+	}
 
 }
 

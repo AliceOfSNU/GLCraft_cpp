@@ -37,8 +37,8 @@ def assign_biome_colors(mp):
     return img
 
 def test_biome_cat():
-    img0_0 = assign_biome_colors(to_np_img("map0_0.txt"))
-    img1_0 = assign_biome_colors(to_np_img("map0_4096.txt"))
+    img0_0 = assign_biome_colors(to_np_img("map0_-4096.txt"))
+    img1_0 = assign_biome_colors(to_np_img("map0_0.txt"))
 
     img = np.concatenate([img0_0, img1_0], axis = 1)
 
@@ -52,6 +52,17 @@ def test_landscape():
     ax[0].pcolor(scimg)
     ax[1].pcolor(rghimg)
     plt.show()
-test_landscape()
+
+def test_landscape_cat():
+    scimg0 = to_np_img("sc_landscape_-4096.txt")
+    scimg1 = to_np_img("sc_landscape_0.txt")
+    
+    img = np.concatenate([scimg0, scimg1], axis = 1)
+    
+    plt.imshow(img)
+    plt.show()
+
+
+test_landscape_cat()
         
 

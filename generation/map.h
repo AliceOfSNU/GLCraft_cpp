@@ -36,6 +36,8 @@ namespace MapGen {
 
 		vec2i MapToWorldPoint(int i, int j)const;
 		vec2i WorldToMapPoint(int i, int j)const;
+		vec2f WorldToMapPointF(int i, int j)const;
+		MapDataTy SamplePointSubpixel(double i, double j)const;
 	};
 
 	//the simplest data would just tell apart oceans from land.
@@ -109,8 +111,9 @@ namespace MapGen {
 		}
 	};
 
-
-
+	//specialized member functions
+	template<>
+	inline LandscapeData Map<LandscapeData, 512>::SamplePointSubpixel(double x, double z) const;
 
 }
 
