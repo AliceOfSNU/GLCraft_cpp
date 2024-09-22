@@ -22,7 +22,7 @@ namespace MapGen {
 		//virtual static Map<OutputTy, OutputSZ> Forward(Map<InputTy, InputSZ>& mp1, Map<InputTy, InputSZ>& mp2) = 0;
 	};
 
-	template<class T, class... Types>
+	template<typename T, typename... Types>
 	class Inputs;
 
 	class Empty;
@@ -31,6 +31,19 @@ namespace MapGen {
 	class Zoom : public Layer<Ty, SZ, Ty, SZ*2> {
 	public:
 		static Map<Ty, SZ*2> Forward(Map<Ty, SZ>&);
+	};
+
+	template<class Ty, unsigned int SZ>
+	class NoisyZoom : public Layer<Ty, SZ, Ty, SZ * 2> {
+	public:
+		/// <summary>
+		/// unlike the default zoom, which just smudges the boundary by allowing information to flow in one direction only,
+		/// noisy zoom allows information to flow in both direction, hence possibly creating swaps or exchanges
+		/// swaps are undesirable if you want patchy results, but are inevitable if you want a pixel to look at all its neighbors
+		/// </summary>
+		/// <param name=""></param>
+		/// <returns></returns>
+		static Map<Ty, SZ * 2> Forward(Map<Ty, SZ>&);
 	};
 
 	
@@ -98,6 +111,7 @@ namespace MapGen {
 		/// special treatment for ocean biomes to clamp maximum height below sea level=0
 		/// </summary>
 		static Map<LandscapeData, SZ> Forward(Map<OceanMapData, SZ>& input);
+		static Map<LandscapeData, SZ> Forward(Map<BiomeData, SZ>& biomeInput);
 
 	};
 

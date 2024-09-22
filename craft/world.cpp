@@ -488,30 +488,26 @@ void TerrainGeneration::GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT La
 
 	// level 16
 	Map<OceanMapData, 16> bOceanMp16 = Zoom<OceanMapData, 8>::Forward(bOceanMp8);
-	Map<LandscapeData, 16> landscapeMp16 = GenLandscapeLayer<16>::Forward(bOceanMp16);
 
 	// level 32
 	Map<OceanMapData, 32> bOceanMp32 = Zoom<OceanMapData, 16>::Forward(bOceanMp16);
 	Map<PreClimateData, 32> climateMp32 = GenPreClimateLayer<32>::Forward(bOceanMp32);
 	Map<BiomeData, 32> biomeMp32 = GenBiomeLayer<32>::Forward(climateMp32, bOceanMp32);
-	Map<LandscapeData, 32> landscapeMp32 = Zoom<LandscapeData, 16>::Forward(landscapeMp16);
 
 	// level 64
 	Map<BiomeData, 64> biomeMp64 = Zoom<BiomeData, 32>::Forward(biomeMp32);
-	Map<LandscapeData, 64> landscapeMp64 = Zoom<LandscapeData, 32>::Forward(landscapeMp32);
 
 	// level 128
 	Map<BiomeData, 128> biomeMp128 = Zoom<BiomeData, 64>::Forward(biomeMp64);
-	Map<LandscapeData, 128> landscapeMp128 = Zoom<LandscapeData, 64>::Forward(landscapeMp64);
-	landscapeMp128 = GenShorelineLayer<128>::Forward(landscapeMp128, biomeMp128);
+	Map<LandscapeData, 128> landscapeMp128 = GenLandscapeLayer<128>::Forward(biomeMp128);
 
 	//// level 256
-	Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128); //return
-	Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 128>::Forward(landscapeMp128);
+	Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128); 
+	Map<LandscapeData, 256> landscapeMp256 = NoisyZoom<LandscapeData, 128>::Forward(landscapeMp128);
 
 	//// level 512
 	biomeMp = Zoom<BiomeData, 256>::Forward(biomeMp256);
-	lscapeMp = Zoom<LandscapeData, 256>::Forward(landscapeMp256);
+	lscapeMp = NoisyZoom<LandscapeData, 256>::Forward(landscapeMp256);
 
 	ASSERT_VALID_MAP(biomeMp);
 	return;
@@ -569,8 +565,9 @@ void TerrainGeneration::GenerateTerrainHeightsFromMap(Chunk* chunk, const Landsc
 			LandscapeData lsdata = lscapeMp.SamplePointSubpixel(xzls.x, xzls.y);
 			float alpha = lsdata.roughness;
 			int scale = lsdata.maxAbsScale;
-			float h = alpha * fastNoise.samplePoint(x, z) + (1.0f - alpha) * slowNoise.samplePoint(x, z);
-			
+			float fn = fastNoise.samplePoint(x, z), sn = slowNoise.samplePoint(x, z);
+			float h = alpha * fn + (1.0f - alpha) * sn;
+
 			//2. invert elevation if ocean
 			bool isOcean = biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::SHALLOW_OCEAN || biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::DEEP_OCEAN;
 			if (isOcean)
@@ -614,9 +611,6 @@ void TerrainGeneration::Generate(Chunk* chunk) {
 	BiomeMap_t biomeMp;
 	LandscapeMap_t lscapeMp;
 	FindOrCreateMap({ chunk->basepos.x, chunk->basepos.z }, OUT biomeMp, OUT lscapeMp);
-	if (chunk->basepos.x == 352 && chunk->basepos.z == 0) {
-		std::cout << "here" << std::endl;
-	}
 	GenerateBiomeFromMap(chunk, biomeMp);
 	GenerateTerrainHeightsFromMap(chunk, lscapeMp, biomeMp);
 	GenerateRocks(chunk);

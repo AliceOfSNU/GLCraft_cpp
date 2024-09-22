@@ -20,19 +20,20 @@ namespace MapGen {
 	class Map {
 	public:
 
-		//the constructor allocates memory
 		Map(const vec2i& basepos, const int scale);
 		Map();
 		//~Map();
-		
 
-		//actually, a map of size SZ with hold (1+SZ) rows and (1+SZ) cols of data
-		//the last row/col is a padding for computing values along the edges.
-		MapDataTy** data; 
+		// actually, a map of size SZ with hold (2+SZ) rows and (2+SZ) cols of data
+		// the first/last row/col is a padding for computing values along the edges.
+		int pad = 2;
+		MapDataTy** data;
 		vec2i basepos;
+
+		// scale is the number of blocks that corresponds to one pixel of the map
 		int scale;
 
-		int size() { return SZ; }
+		int size() { return SZ+2*pad; }
 
 		vec2i MapToWorldPoint(int i, int j)const;
 		vec2i WorldToMapPoint(int i, int j)const;
@@ -40,13 +41,19 @@ namespace MapGen {
 		MapDataTy SamplePointSubpixel(double i, double j)const;
 	};
 
-	//the simplest data would just tell apart oceans from land.
+	// the simplest data would just tell apart oceans from land.
 	struct OceanMapData {
 		bool isLand = false;
 
 		static OceanMapData mix(const OceanMapData& a, const OceanMapData& b, float r) {
 			if (r < 0.5) return OceanMapData{ a.isLand };
 			return OceanMapData{ b.isLand };
+		}
+
+		static OceanMapData mix(const OceanMapData& a, const OceanMapData& b, const OceanMapData& c, float r) {
+			if (r < 0.33) return OceanMapData{ a.isLand };
+			else if (r < 0.67) return OceanMapData{ b.isLand };
+			return OceanMapData{ c.isLand };
 		}
 
 		static OceanMapData mix(const OceanMapData& a, const OceanMapData& b, const OceanMapData& c, const OceanMapData& d, float r) {
@@ -79,6 +86,14 @@ namespace MapGen {
 			return data;
 		}
 
+		static BiomeData mix(const BiomeData& a, const BiomeData& b, const BiomeData& c, float r) {
+			BiomeData data;
+			if (r < 0.33) data.biomeType = a.biomeType;
+			else if (r < 0.67) data.biomeType = b.biomeType;
+			else data.biomeType = c.biomeType;
+			return data;
+		}
+
 		static BiomeData mix(const BiomeData& a, const BiomeData& b, const BiomeData& c, const BiomeData& d, float r) {
 			BiomeData data;
 			if (r < 0.25) data.biomeType = a.biomeType;
@@ -97,15 +112,23 @@ namespace MapGen {
 
 		static LandscapeData mix(const LandscapeData& a, const LandscapeData& b, float r) {
 			LandscapeData data;
-			data.maxAbsScale = (a.maxAbsScale + b.maxAbsScale) / 2;
+			data.maxAbsScale = (a.maxAbsScale + b.maxAbsScale) / 2.0f + (4*r-2);
 			data.roughness = (a.roughness + b.roughness) / 2.0f;
+
+			return data;
+		}
+
+		static LandscapeData mix(const LandscapeData& a, const LandscapeData& b, const LandscapeData& c, float r) {
+			LandscapeData data;
+			data.maxAbsScale = (a.maxAbsScale + b.maxAbsScale + c.maxAbsScale) / 3.0f + (4 * r - 2);
+			data.roughness = (a.roughness + b.roughness + c.roughness) / 3.0f;
 
 			return data;
 		}
 
 		static LandscapeData mix(const LandscapeData& a, const LandscapeData& b, const LandscapeData& c, const LandscapeData& d, float r) {
 			LandscapeData data;
-			data.maxAbsScale = (a.maxAbsScale + b.maxAbsScale + c.maxAbsScale + d.maxAbsScale) / 4;
+			data.maxAbsScale = (a.maxAbsScale + b.maxAbsScale + c.maxAbsScale + d.maxAbsScale) / 4.0f;
 			data.roughness = (a.roughness + b.roughness + c.roughness + d.roughness) / 4.0f;
 			return data;
 		}
