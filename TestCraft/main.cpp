@@ -25,9 +25,9 @@ void printMap(Map<OceanMapData, SZ>& mp) {
 template<unsigned int SZ>
 void saveMap(Map<BiomeData, SZ>& mp, std::string title) {
 	std::ofstream imgfile(title);
-	for (int i = 0; i <= SZ; ++i) {
-		for (int j = 0; j <= SZ; ++j) {
-			imgfile << (int)(mp.data[i][j].biomeType)<< ' ';
+	for (int i = 0; i < mp.size(); ++i) {
+		for (int j = 0; j < mp.size(); ++j) {
+			imgfile << static_cast<int>(mp.data[i][j].biomeType)<< ' ';
 		}
 	}
 
@@ -38,8 +38,8 @@ template<unsigned int SZ>
 void saveMap(Map<LandscapeData, SZ>& mp, std::string title) {
 	std::ofstream scfile("sc_" + title);
 	std::ofstream rghfile("rgh_" + title);
-	for (int i = 0; i <= SZ; ++i) {
-		for (int j = 0; j <= SZ; ++j) {
+	for (int i = 0; i < mp.size(); ++i) {
+		for (int j = 0; j < mp.size(); ++j) {
 			scfile << mp.data[i][j].maxAbsScale << ' ';
 			rghfile << mp.data[i][j].roughness << ' ';
 		}
@@ -78,33 +78,29 @@ int main()
 
 		// level 16
 		Map<OceanMapData, 16> bOceanMp16 = Zoom<OceanMapData, 8>::Forward(bOceanMp8);
-		Map<LandscapeData, 16> landscapeMp16 = GenLandscapeLayer<16>::Forward(bOceanMp16);
 
 		// level 32
 		Map<OceanMapData, 32> bOceanMp32 = Zoom<OceanMapData, 16>::Forward(bOceanMp16);
 		Map<PreClimateData, 32> climateMp32 = GenPreClimateLayer<32>::Forward(bOceanMp32);
 		Map<BiomeData, 32> biomeMp32 = GenBiomeLayer<32>::Forward(climateMp32, bOceanMp32);
-		Map<LandscapeData, 32> landscapeMp32 = Zoom<LandscapeData, 16>::Forward(landscapeMp16);
+		saveMap(biomeMp32, "biome32_" + std::to_string(ystart) + ".txt");
 
 		// level 64
 		Map<BiomeData, 64> biomeMp64 = Zoom<BiomeData, 32>::Forward(biomeMp32);
-		Map<LandscapeData, 64> landscapeMp64 = Zoom<LandscapeData, 32>::Forward(landscapeMp32);
 
 		// level 128
 		Map<BiomeData, 128> biomeMp128 = Zoom<BiomeData, 64>::Forward(biomeMp64);
-		Map<LandscapeData, 128> landscapeMp128 = Zoom<LandscapeData, 64>::Forward(landscapeMp64);
-		
-		landscapeMp128 = GenShorelineLayer<128>::Forward(landscapeMp128, biomeMp128);
+		Map<LandscapeData, 128> landscapeMp128 = GenLandscapeLayer<128>::Forward(biomeMp128);
 
 		//// level 256
-		Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128); //return
-		Map<LandscapeData, 256> landscapeMp256 = Zoom<LandscapeData, 128>::Forward(landscapeMp128);
+		Map<BiomeData, 256> biomeMp256 = Zoom<BiomeData, 128>::Forward(biomeMp128);
+		Map<LandscapeData, 256> landscapeMp256 = NoisyZoom<LandscapeData, 128>::Forward(landscapeMp128);
 
 		//// level 512
 		Map < BiomeData, 512> biomeMp512 = Zoom<BiomeData, 256>::Forward(biomeMp256);
-		Map < LandscapeData, 512> landscapeMp512 = Zoom<LandscapeData, 256>::Forward(landscapeMp256);
-		saveMap(biomeMp512, "map0_" + std::to_string(ystart) +  ".txt");
-		//saveMap(landscapeMp512, "landscape_" + std::to_string(ystart) + ".txt");
+		Map < LandscapeData, 512> landscapeMp512 = NoisyZoom<LandscapeData, 256>::Forward(landscapeMp256);
+		saveMap(biomeMp512, "biome512_" + std::to_string(ystart) +  ".txt");
+		saveMap(landscapeMp512, "landscape_" + std::to_string(ystart) + ".txt");
 	}
 
 	return 0;

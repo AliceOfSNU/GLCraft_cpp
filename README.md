@@ -9,5 +9,4 @@ This repository is still in active development, aiming to release preview v0.1.0
 
 I aim to make this project more than just a copy of minecraft, by adding more realism in graphics and terrain generation logic.
 
-![in-game image sample. TerrainGeneration is not yet finished](readme_preview.png)
-
+![alt text](image.png)
