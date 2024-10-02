@@ -1,8 +1,7 @@
 #pragma once
 #ifndef GUI_H
 #define GUI_H
-/* Hanjun Kim 2024 */
-#include "shader.h"
+#include "rendering.hpp"
 #include "GLObjects.h"
 #include <iostream>
 

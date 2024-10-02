@@ -144,22 +144,25 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="blocks.cpp" />
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="GLObjects.cpp" />
     <ClCompile Include="GLObjects.h" />
     <ClCompile Include="gui.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="rendering.cpp" />
     <ClCompile Include="stb.cpp" />
     <ClCompile Include="world.cpp" />
     <ClCompile Include="world.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="blocks.hpp" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="gui.h" />
     <ClInclude Include="ray.h" />
-    <ClInclude Include="shader.h" />
+    <ClInclude Include="rendering.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="basic.fs" />

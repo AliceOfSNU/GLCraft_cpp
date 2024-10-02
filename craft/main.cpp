@@ -8,12 +8,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "shader.h"
 #include "GLObjects.h"
 #include "camera.h"
 #include "world.h"
 #include "debug.h"
 #include "gui.h"
+#include "world.h"
+#include "rendering.hpp"
 using namespace std;
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -100,7 +101,7 @@ int main() {
 	world.CreateInitialChunks(Camera::MainCamera.position);
 	CircleFill circleUI(70.f);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 13, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 16, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
@@ -115,6 +116,7 @@ int main() {
 	glEnable(GL_DEPTH_TEST);
 
 	double applicationStartTime = glfwGetTime();
+	size_t frameCnt = 0;
 	while (!glfwWindowShouldClose(window)) {
 
 
@@ -123,6 +125,7 @@ int main() {
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
+		frameCnt = (frameCnt + 1) % 1000000;
 
 		//--------- INPUT
 		processInput(window);
@@ -164,7 +167,7 @@ int main() {
 		glClearColor(0.37f, 0.23f, 0.67f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		shader.use();
+
 		arr_tex.Bind();
 
 		//model view projection
@@ -172,17 +175,26 @@ int main() {
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 proj = glm::mat4(1.0f);
 		//model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+		shader.use();
 		view = Camera::MainCamera.GetViewMatrix();
 		proj = Camera::MainCamera.GetPerspectiveMatrix();
-		shader.setMat4f("model", glm::value_ptr(model));
-		shader.setMat4f("view", glm::value_ptr(view));
-		shader.setMat4f("proj", glm::value_ptr(proj));
-
 
 		// world update
 		world.UpdateChunks(Camera::MainCamera.position);
 		world.Build();
-		world.Render();
+		//world.Render();
+
+		//-------- Render
+		shader.setMat4f("model", glm::value_ptr(model));
+		shader.setMat4f("view", glm::value_ptr(view));
+		shader.setMat4f("proj", glm::value_ptr(proj));
+
+		// 1. Opaque pass
+		for (auto& [cidx, chunk] : world.visChunks) {
+			if (!chunk->solidRenderObj.isBuilt || !chunk->solidRenderObj.isRender) continue;
+			chunk->solidRenderObj.vao.Bind();
+			glDrawElements(GL_TRIANGLES, chunk->solidRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
+		}
 
 		//-------- UI
 		if (mouseHeld && blockDestructionTimer.running) {

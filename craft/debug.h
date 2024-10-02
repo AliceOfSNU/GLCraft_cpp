@@ -4,10 +4,11 @@
 
 #include <vector>
 #include <iostream>
-#include "shader.h"
 #include "GLObjects.h"
+#include "blocks.hpp"
 #include "ray.h"
 #include "camera.h"
+#include "rendering.hpp"
 
 class Gizmo {
 public:

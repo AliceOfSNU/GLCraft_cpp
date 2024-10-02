@@ -9,7 +9,6 @@
 
 #include<glad/glad.h>
 #include <stb/stb_image.h>
-#include "shader.h"
 #include<cassert>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -21,37 +20,12 @@
 #include "GLObjects.h"
 #include "map.cpp"
 #include "layers.cpp"
+#include "rendering.hpp"
+#include "blocks.hpp"
 
 using pii = std::pair<int, int>;
 using namespace MapGen;
 
-class BlockDB {
-public:
-	enum BlockType {
-		BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_COUNT
-	};
-
-	//this should be in opposite order
-	enum BlockTextures {
-		FOILAGE, ELM_SIDE, ELM_TOP, BIRCH_SIDE, BIRCH_TOP, WATER, GRANITE, SNOW, SNOW_SIDE, SAND, GRASS_TOP, GRASS_SIDE, DIRT
-	};
-
-	struct BlockDataRow {
-		BlockType type;
-		BlockTextures faceTextures[6];		//which Texture to put on each face
-	};
-
-	static BlockDB& GetInstance() {
-		static BlockDB instance;
-		return instance;
-	}
-
-	std::vector<BlockDataRow> tbl;
-private:
-	BlockDB();
-	BlockDB(BlockDB const& other) = delete;
-	BlockDB& operator=(BlockDB const& other) = delete;
-};
 
 class BiomeDB {
 public:
@@ -75,41 +49,6 @@ private:
 };
 
 
-class Block {
-public:
-	glm::f32vec3 pos;
-	BlockDB::BlockDataRow* blockData;
-	Block();
-	Block(BlockDB::BlockType type);
-
-	static float vertexPositions[8][3];
-	static int faces[6][4];
-	static int faceElements[6][6];
-	static float facePositions[6][12];
-	enum Face
-	{
-		FRONT, RIGHT, BACK, LEFT, TOP, BOTTOM
-	};
-
-	using vf = std::vector<GLfloat>;
-	using vi = std::vector<GLuint>;
-
-	//iterators are automatically advanced.
-	//returns the number of added vertices
-	GLuint PlaceFaceTexturesData(float*& dest, int face);
-	GLuint PlaceFaceTexturesData(vf& dest, int face);
-
-	GLuint PlaceFaceVertexData(float*& dest, int face);
-	GLuint PlaceFaceVertexData(vf& dest, int face);
-
-	GLuint PlaceFaceIndex(vi& dest, GLuint vtxn, int face);
-
-	//merged version of Place___Data.
-	GLuint PlaceFaceData(
-		vf& vtxit, vf& uvit, vi& idxit, INOUT GLuint& vtxn, int face
-	);
-};
-
 /*
 chunking manages rendering of multiple blocks.
 a chunk records positions of blocks and does not render adjacent, overlapping faces.
@@ -126,8 +65,8 @@ public:
 	BiomeType blockBiome[SZ][SZ]; //the biome type for each column
 	
 	size_t blockCnt;
-	GLuint vtxCnt; //number of vertices to render(VBO)
-	GLuint idxCnt; //number of indices to render(EBO)
+	//GLuint vtxCnt; //number of vertices to render(VBO)
+	//GLuint idxCnt; //number of indices to render(EBO)
 	ivec3 basepos; //the position of minimum x, y, z.
 
 	bool isBuilt, requiresRebuild;
@@ -150,8 +89,6 @@ public:
 	//main functions
 	void Build();
 	void ReBuild();
-	void Render();
-	void DeleteBuffers();
 
 	//manipulation
 	void DestroyBlockAt(const ivec3& bidx);
@@ -166,15 +103,17 @@ public:
 	ivec3 BlockGridToWorldIdx(const ivec3& grididx);
 	//ivec3 ChunkToWorldCoordinate(ivec3 chunkpos);
 
-private:
-	//data
-	std::vector<GLfloat> vtxdata, uvdata;
-	std::vector<GLuint> idxdata;
+	RenderObject solidRenderObj;
+	RenderObject cutoutRenderObj;
 
-	//renderer
-	VAO vao;
-	VBO vbo_pos, vbo_uv;
-	EBO ebo;
+	////data
+	//std::vector<GLfloat> vtxdata, uvdata;
+	//std::vector<GLuint> idxdata;
+
+	////renderer
+	//VAO vao;
+	//VBO vbo_pos, vbo_uv;
+	//EBO ebo;
 };
 
 
@@ -286,7 +225,6 @@ public:
 	Chunk* GetChunkByIndex(const glm::ivec3& idx);
 	Chunk* GetChunkContainingBlock(const glm::ivec3& worldIdx);
 	void UpdateChunks(glm::vec3& playerPosition);
-	void Render();
 	void Build();
 
 private:
