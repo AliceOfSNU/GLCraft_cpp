@@ -22,9 +22,6 @@
     <Filter Include="Resource Files\textures">
       <UniqueIdentifier>{834c40bb-64c0-4f10-be5e-e4007c057092}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Entities">
-      <UniqueIdentifier>{02d77f08-1515-44a5-8b34-d68a358474cb}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glad.c">
@@ -60,6 +57,9 @@
     <ClCompile Include="blocks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="plants.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h">
@@ -78,6 +78,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="blocks.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="plants.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -104,6 +107,9 @@
       <Filter>Resource Files\shaders</Filter>
     </None>
     <None Include="circleui.frag">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="cutout.fs">
       <Filter>Resource Files\shaders</Filter>
     </None>
   </ItemGroup>

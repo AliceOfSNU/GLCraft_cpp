@@ -7,7 +7,7 @@ RenderObject::RenderObject(RenderMode _mode):mode(_mode), isBuilt(false), hasBuf
 // appends block's mesh and texture data into internal storage vector
 void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos, unsigned int face) {
 	BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
-	BlockMeshData& mesh = row.meshData;
+	BlockMeshData& mesh = BlockDB::GetInstance().GetMeshData(row.meshType);
 	// place vertex data. 4 vertices of a square * 3 (xyz)
 	for (int i = 0; i < 4*3;) {
 		vtxdata.push_back(mesh.faceVerticesData[face][i++] + pos.x);
@@ -62,7 +62,6 @@ void RenderObject::Build() {
 	
 	isBuilt = true;
 }
-
 
 void RenderObject::CreateBuffers() {
 	if (hasBuffers) return;

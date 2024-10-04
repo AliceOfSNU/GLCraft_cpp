@@ -22,6 +22,7 @@
 #include "layers.cpp"
 #include "rendering.hpp"
 #include "blocks.hpp"
+#include "plants.hpp"
 
 using pii = std::pair<int, int>;
 using namespace MapGen;
@@ -68,8 +69,9 @@ public:
 	//GLuint vtxCnt; //number of vertices to render(VBO)
 	//GLuint idxCnt; //number of indices to render(EBO)
 	ivec3 basepos; //the position of minimum x, y, z.
+	ivec3 chunkIdx; //unique integer index for this chunk.
 
-	bool isBuilt, requiresRebuild;
+	bool isBuilt, requiresRebuild, initialized;
 	/*
 	* The vertices of a cube are always numbered as below:
 	* 
@@ -84,7 +86,7 @@ public:
 
 	//blocks should be added to a chunk after construction.
 	Chunk();
-	Chunk(const ivec3& pos);
+	Chunk(const ivec3& pos, const ivec3& chunkIdx);
 
 	//main functions
 	void Build();
@@ -92,7 +94,7 @@ public:
 
 	//manipulation
 	void DestroyBlockAt(const ivec3& bidx);
-	void PlaceBlockAt(const ivec3& bidx);
+	void PlaceBlockAtCompileTime(const ivec3& bidx, const BlockDB::BlockType blkTy);
 	
 	//utils
 	//testing worldpos lies inside this chunk's boundary
@@ -106,14 +108,6 @@ public:
 	RenderObject solidRenderObj;
 	RenderObject cutoutRenderObj;
 
-	////data
-	//std::vector<GLfloat> vtxdata, uvdata;
-	//std::vector<GLuint> idxdata;
-
-	////renderer
-	//VAO vao;
-	//VBO vbo_pos, vbo_uv;
-	//EBO ebo;
 };
 
 
@@ -201,7 +195,7 @@ public:
 	/// <param name="chunk">the chunk to operate on</param>
 	void ReplaceSurface(Chunk* chunk);
 	
-	void GeneratePlantation(Chunk* chunk);
+	void GenerateBiomass(Chunk& chunk);
 	
 protected:
 	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
@@ -216,9 +210,12 @@ public:
 	TerrainGeneration worldgen;
 	glm::ivec3 centerChunkIdx{ 0,0,0 };
 
-	static constexpr int VIS_WORLD_SZ = 5, HVIS_WORLD_SZ = 2, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
+	static constexpr int VIS_WORLD_SZ = 7, HVIS_WORLD_SZ = 3, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
 
-	World(glm::vec3 spawnPoint);
+	static World& GetInstance() {
+		static World instance = World({0.0f, 1.0f, 0.0f});
+		return instance;
+	}
 
 	void CreateInitialChunks(glm::vec3 playerPosition); //creates chunks to start with.
 	Chunk* CurrentChunk(glm::vec3& position); //Pointer to current chunk.
@@ -228,6 +225,9 @@ public:
 	void Build();
 
 private:
+	World(glm::vec3 centerPoint);
+	World(World const& other) = delete;
+	World& operator=(World const& other) = delete;
 	Chunk* findOrCreateChunk(const p3i& chunkIdx);
 };
 #endif

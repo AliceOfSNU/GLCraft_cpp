@@ -66,7 +66,7 @@ public:
         this->pitch = pitch;
 
         worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
-        perspective = glm::perspective(glm::radians(45.0f), (float)(screenWidth / screenHeight), 0.1f, 100.0f);
+        perspective = glm::perspective(glm::radians(45.0f), (float)(screenWidth / screenHeight), 0.1f, 200.0f);
         inversePerspective = glm::inverse(perspective);
         updateCameraVectors();
     }

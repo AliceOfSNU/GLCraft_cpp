@@ -151,6 +151,7 @@
     <ClCompile Include="GLObjects.h" />
     <ClCompile Include="gui.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="plants.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="stb.cpp" />
     <ClCompile Include="world.cpp" />
@@ -161,6 +162,7 @@
     <ClInclude Include="camera.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="gui.h" />
+    <ClInclude Include="plants.hpp" />
     <ClInclude Include="ray.h" />
     <ClInclude Include="rendering.hpp" />
   </ItemGroup>
@@ -169,6 +171,7 @@
     <None Include="basic.vs" />
     <None Include="circleui.frag" />
     <None Include="circleui.vert" />
+    <None Include="cutout.fs" />
     <None Include="solidcolor.fs" />
     <None Include="solidcolor.vs" />
     <None Include="texture.fs" />

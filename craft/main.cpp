@@ -27,7 +27,7 @@ constexpr int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 800;
 
 bool isWindowed = true;
 bool isKeyboardProcessed[1024] = { 0 };
-Camera Camera::MainCamera = Camera(glm::vec3(4.0f, 1.0f, -4.0f));
+Camera Camera::MainCamera = Camera(glm::vec3(0.0f, 1.0f, 0.0f));
 
 //mouse
 bool mouseHeld = false;
@@ -70,9 +70,6 @@ public:
 } blockDestructionTimer;
 
 
-World world(Camera::MainCamera.position);
-
-
 int main() {
 	glfwInit();
 
@@ -98,7 +95,7 @@ int main() {
 	
 
 	FacesSelection selectedFaces;
-	world.CreateInitialChunks(Camera::MainCamera.position);
+	World::GetInstance().CreateInitialChunks(Camera::MainCamera.position);
 	CircleFill circleUI(70.f);
 	//create gl texture
 	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 16, GL_RGBA);
@@ -107,6 +104,7 @@ int main() {
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
 
 	Shader shader = Shader("basic.vs", "basic.fs");
+	Shader cutoutShader = Shader("basic.vs", "cutout.fs");
 	Shader solidColorShader = Shader("solidcolor.vs", "solidcolor.fs");
 
 	//get the uniform id for texture sampler
@@ -139,7 +137,7 @@ int main() {
 			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
 				//DestroyBlock(blockDestructionTimer.blockIdx);
 				cout << "timer goes off" << endl;
-				Chunk* ch = world.GetChunkContainingBlock(selectedBlockIdx);
+				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
 					ch->DestroyBlockAt(bidx);
@@ -149,7 +147,7 @@ int main() {
 			else if (!blockDestructionTimer.running || selectedBlockIdx != blockDestructionTimer.blockIdx) {
 				//if selected block exists but timer isn't runinng, it should start running.
 				//also, if the selected block changes while mouse is still pressed, timer should restart.
-				Chunk* ch = world.GetChunkContainingBlock(selectedBlockIdx);
+				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 
 				if (ch) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
@@ -175,26 +173,38 @@ int main() {
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 proj = glm::mat4(1.0f);
 		//model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
-		shader.use();
 		view = Camera::MainCamera.GetViewMatrix();
 		proj = Camera::MainCamera.GetPerspectiveMatrix();
 
 		// world update
-		world.UpdateChunks(Camera::MainCamera.position);
-		world.Build();
+		World::GetInstance().UpdateChunks(Camera::MainCamera.position);
+		World::GetInstance().Build();
 		//world.Render();
 
 		//-------- Render
+		shader.use();
 		shader.setMat4f("model", glm::value_ptr(model));
 		shader.setMat4f("view", glm::value_ptr(view));
 		shader.setMat4f("proj", glm::value_ptr(proj));
 
 		// 1. Opaque pass
-		for (auto& [cidx, chunk] : world.visChunks) {
+		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->solidRenderObj.isBuilt || !chunk->solidRenderObj.isRender) continue;
 			chunk->solidRenderObj.vao.Bind();
 			glDrawElements(GL_TRIANGLES, chunk->solidRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
+		
+		// 2. Cutout pass
+		cutoutShader.use();
+		cutoutShader.setMat4f("model", glm::value_ptr(model));
+		cutoutShader.setMat4f("view", glm::value_ptr(view));
+		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
+		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
+			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
+			chunk->cutoutRenderObj.vao.Bind();
+			glDrawElements(GL_TRIANGLES, chunk->cutoutRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
+		}
+
 
 		//-------- UI
 		if (mouseHeld && blockDestructionTimer.running) {
@@ -237,7 +247,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 	//Debug::DrawRay(ray);
 	
 	glm::ivec3 currChunkIdx = Chunk::WorldToChunkIndex(Camera::MainCamera.position);
-	Chunk* currChunk = world.GetChunkByIndex(currChunkIdx);
+	Chunk* currChunk = World::GetInstance().GetChunkByIndex(currChunkIdx);
 	if (!currChunk) return;
 
 	glm::ivec3 idx = currChunk->FindBlockIndex(Camera::MainCamera.position);
@@ -280,7 +290,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 			ii = ix + xDir;
 			if (ii < 0 || ii >= Chunk::SZ) {
 				currChunkIdx.x += xDir;
-				currChunk = world.GetChunkByIndex(currChunkIdx);
+				currChunk = World::GetInstance().GetChunkByIndex(currChunkIdx);
 				if (!currChunk) break;
 				ii = ix = (ii < 0 ? Chunk::SZ - 1 : 0);
 			}
@@ -290,7 +300,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 			ii = iy + yDir;
 			if (ii < 0 || ii >= Chunk::HEIGHT) {
 				currChunkIdx.y += yDir;
-				currChunk = world.GetChunkByIndex(currChunkIdx);
+				currChunk = World::GetInstance().GetChunkByIndex(currChunkIdx);
 				if (!currChunk) break;
 				ii = iy = (ii < 0 ? Chunk::HEIGHT - 1 : 0);
 			}
@@ -300,7 +310,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 			ii = iz + zDir;
 			if (ii < 0 || ii >= Chunk::SZ) {
 				currChunkIdx.z += zDir;
-				currChunk = world.GetChunkByIndex(currChunkIdx);
+				currChunk = World::GetInstance().GetChunkByIndex(currChunkIdx);
 				if (!currChunk) break;
 				ii = iz = (ii < 0 ? Chunk::SZ-1 : 0);
 			}

@@ -22,7 +22,7 @@ namespace MapGen {
 		float random = a * (3.14159265 / ~(~0u >> 1));
 
 		//return 0.5f + 0.5f * sin(random);
-		return fmodf(random, 1.0f);
+		return fmodf(random + 0.2f, 1.0f);
 	}
 
 	static float simpleNoiseFn(vec2i v) {
@@ -40,7 +40,7 @@ namespace MapGen {
 		a *= 2048419325;
 		float random = a * (3.14159265 / ~(~0u >> 1));
 
-		return vec2f{ sin(random), cos(random) };
+		return vec2f{ sin(random + 0.05f), cos(random + 0.05f) };
 	}
 
 	static float dotGradient(int ix, int iy, float x, float y) {

@@ -30,13 +30,16 @@ BiomeDB::BiomeDB() {
 }
 
 
-Chunk::Chunk() :blockCnt(0), isBuilt(false), requiresRebuild(false){ 
+Chunk::Chunk() :blockCnt(0), isBuilt(false), requiresRebuild(false), initialized(false){ 
 	basepos = ivec3(0, 0, 0); 
+	chunkIdx = ivec3(-100'000'000, -100'000'000, -100'000'000);
 	solidRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
+	cutoutRenderObj = RenderObject(RenderObject::RenderMode::CUTOUT);
 };
 
-Chunk::Chunk(const ivec3& pos) : blockCnt(0), isBuilt(false), basepos(pos) {
+Chunk::Chunk(const ivec3& pos, const ivec3& cidx) : blockCnt(0), isBuilt(false), initialized(false), basepos(pos), chunkIdx(cidx) {
 	solidRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
+	cutoutRenderObj = RenderObject(RenderObject::RenderMode::CUTOUT);
 };
 
 void Chunk::Build() {
@@ -62,16 +65,17 @@ void Chunk::Build() {
 				glm::f32vec3 pos{ basepos.x + i, basepos.y + j, basepos.z + k };
 				switch (block->blockData->renderType) {
 				case BlockDB::RenderType::SOLID:
-					if (i == 0 || i > 0 && grid[i - 1][j][k] == nullptr)					solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::LEFT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
-					if (i == SZ - 1 || i < SZ - 1 && grid[i + 1][j][k] == nullptr)			solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::RIGHT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
-					if (j == 0 || j > 0 && grid[i][j - 1][k] == nullptr)					solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::BOTTOM);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
-					if (j == HEIGHT - 1 || j < HEIGHT - 1 && grid[i][j + 1][k] == nullptr)	solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::TOP);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
-					if (k == 0 || k > 0 && grid[i][j][k - 1] == nullptr)					solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::BACK);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
-					if (k == SZ - 1 || k < SZ - 1 && grid[i][j][k + 1] == nullptr)			solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::FRONT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
+					if (i == 0 || i > 0 && !BlockDB::GetInstance().isSolidCube(grid[i - 1][j][k]))						solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::LEFT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
+					if (i == SZ - 1 || i < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i + 1][j][k]))			solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::RIGHT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
+					if (j == 0 || j > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j - 1][k]))						solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::BOTTOM);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
+					if (j == HEIGHT - 1 || j < HEIGHT - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j + 1][k]))	solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::TOP);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
+					if (k == 0 || k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))						solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::BACK);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
+					if (k == SZ - 1 || k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))			solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::FRONT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
 					break;
-				case BlockDB::RenderType::TRANSPARENT:
+				case BlockDB::RenderType::CUTOUT:
+					// place all faces, without culling
 					for (int f = 0; f < block->blockData->numFaces(); ++f) {
-						solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, f);
+						cutoutRenderObj.PlaceBlockFaceData(block->blockData->type, pos, f);
 					}
 					break;
 				}
@@ -82,6 +86,7 @@ void Chunk::Build() {
 
 	// transfer data to GL buffers
 	solidRenderObj.Build();
+	cutoutRenderObj.Build();
 
 	isBuilt = true;
 
@@ -92,6 +97,7 @@ void Chunk::ReBuild() {
 
 	// to rebuild, delete all existing builds first
 	solidRenderObj.DeleteBuffers();
+	cutoutRenderObj.DeleteBuffers();
 	isBuilt = false;
 
 	Build();
@@ -153,6 +159,30 @@ Chunk::ivec3 Chunk::BlockWorldToGridIdx(const ivec3& worldIdx) {
 Chunk::ivec3 Chunk::BlockGridToWorldIdx(const ivec3& gridIdx) {
 	//converts the grid idx of a block in this chunk to the global world-space idx
 	return Chunk::ivec3{ basepos.x + gridIdx.x, basepos.y + gridIdx.y, basepos.z + gridIdx.z };
+}
+
+void Chunk::PlaceBlockAtCompileTime(const ivec3& blockIdx, const BlockDB::BlockType blkTy) {
+	glm::ivec3 cidx = chunkIdx;
+	glm::ivec3 bidx{ blockIdx.x, blockIdx.y, blockIdx.z };
+	while (bidx.x < 0) cidx.x--, bidx.x += Chunk::SZ;
+	while (bidx.x >= Chunk::SZ) cidx.x++, bidx.x -= Chunk::SZ;
+	while (bidx.y < 0) cidx.y--, bidx.y += Chunk::HEIGHT;
+	while (bidx.y >= Chunk::HEIGHT) cidx.y++, bidx.y -= Chunk::HEIGHT;
+	while (bidx.z < 0) cidx.z--, bidx.z += Chunk::SZ;
+	while (bidx.z >= Chunk::SZ) cidx.z++, bidx.z -= Chunk::SZ;
+	if (cidx != chunkIdx) {
+		Chunk* ck = World::GetInstance().GetChunkByIndex(cidx);
+		if (!ck) return;
+		return ck->PlaceBlockAtCompileTime(bidx, blkTy);
+	}
+	if (!grid[bidx.x][bidx.y][bidx.z]) {
+		grid[bidx.x][bidx.y][bidx.z] = new Block(blkTy);
+	}
+	else {
+		grid[bidx.x][bidx.y][bidx.z]->blockData = &BlockDB::GetInstance().tbl[(int)blkTy];
+	}
+	requiresRebuild = true;
+	return;
 }
 
 /// Noise Generator
@@ -278,7 +308,7 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 					chunk->blockCnt++;
 				}
 			}
-			chunk->blockHeight[i][k] = std::min(Chunk::HEIGHT, jsurf); //holds ocean floor value for water
+			//chunk->blockHeight[i][k] = std::min(Chunk::HEIGHT, jsurf); //holds ocean floor value for water
 		}
 	}
 }
@@ -405,17 +435,62 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
 			if (isOcean) continue; //do not replace surface for ocean floors
 
-			int top = chunk->blockHeight[i][k] - 1;
-			for (int b = 0; b < biome.surfaceBlockTypes.size(); ++b) {
+			int top = chunk->blockHeight[i][k] - chunk->basepos.y;
+			for (int b = 0, accDepth = 0; b < biome.surfaceBlockTypes.size(); ++b) {
 				//2. replace top rock blocks with predefined surface block types
 				BlockDB::BlockType surfType = biome.surfaceBlockTypes[b];
 				int surfDepth = biome.surfaceBlockCnts[b];
 				if (top < 0) break;
-				for (int j = top; j > top-surfDepth && j >= 0 ; --j) {
+				int j = top - accDepth;
+				while (j >= Chunk::HEIGHT) j--;
+				accDepth += surfDepth;
+				for (; j > top-accDepth && j >= 0 ; --j) {
 					chunk->grid[i][j][k]->blockData = &BlockDB::GetInstance().tbl[(int)surfType];
 				}
-				top -= surfDepth;
-				if (surfDepth < 0) break; //safety
+			}
+
+		}
+	}
+	return;
+}
+
+
+void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
+	for (int i = 0; i < Chunk::SZ; ++i) {
+		for (int k = 0; k < Chunk::SZ; ++k) {
+			//1. get which biome
+			BiomeType biome = chunk.blockBiome[i][k];
+			int top = chunk.blockHeight[i][k] - chunk.basepos.y;
+			
+			if (top < 0 || top + 1 >= Chunk::HEIGHT) continue; // skip if out of range
+			if (chunk.grid[i][top + 1][k]) continue; // skip if something's already there.
+
+			int bi = chunk.basepos.x + i, bk = chunk.basepos.z + k;
+			glm::ivec3 basepos{ i, top + 1, k };
+
+			switch (biome) {
+			case BiomeType::GRASSLAND: //GRASSLAND -> FLOWERS
+			case BiomeType::RAINFOREST:
+
+				float r = simpleNoiseFn(bi, bk); // create a flower with probability ~0.05
+				if (r > 0.97) {
+					// generate flowers
+					float s = simpleNoiseFn((bi+bk)/20, (bi-bk)/20);
+					auto flower = SmallPlants::Make(SmallPlants::RandomPlant(s));
+					for (auto& [rpos, blkType] : flower) {
+						chunk.PlaceBlockAtCompileTime(basepos + rpos, blkType);
+					}
+				}
+				else if (r > 0.94) {
+					// generate trees
+					auto tree = Trees::Make(Trees::ELM);
+					for (auto& [rpos, blkType] : tree) {
+						chunk.PlaceBlockAtCompileTime(basepos + rpos, blkType);
+					}
+				}
+
+
+				break;
 			}
 
 		}
@@ -431,6 +506,7 @@ void TerrainGeneration::Generate(Chunk* chunk) {
 	GenerateTerrainHeightsFromMap(chunk, lscapeMp, biomeMp);
 	GenerateRocks(chunk);
 	ReplaceSurface(chunk);
+	//GenerateBiomass(*chunk);
 }
 
 /// WORLD FUNCTIONS
@@ -443,7 +519,8 @@ Chunk* World::findOrCreateChunk(const p3i& chunkIdx) {
 			Chunk::SZ * std::get<0>(chunkIdx),
 			Chunk::HEIGHT * std::get<1>(chunkIdx),
 			Chunk::SZ * std::get<2>(chunkIdx)
-		)
+		),
+		{ std::get<0>(chunkIdx), std::get<1>(chunkIdx), std::get<2>(chunkIdx) }
 	);
 
 	//populate the chunk with blocks data
@@ -455,19 +532,34 @@ Chunk* World::findOrCreateChunk(const p3i& chunkIdx) {
 }
 
 World::World(glm::vec3 spawnPoint) {
-	//initialize worldgen
+	// initialize worldgen
 	worldgen = TerrainGeneration();
-	//create initial chunks around spawn point
+	// create initial chunks around spawn point
 	centerChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
 }
 
 void World::CreateInitialChunks(glm::vec3 spawnPoint){
 	centerChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
-	//generate initial blocks
+	// generate initial blocks
 	for (int i = centerChunkIdx.x - HVIS_WORLD_SZ; i <= centerChunkIdx.x + HVIS_WORLD_SZ; ++i) {
 		for (int k = centerChunkIdx.z - HVIS_WORLD_SZ; k <= centerChunkIdx.z + HVIS_WORLD_SZ; ++k) {
 			for (int j = -HVIS_WORLD_HEIGHT; j <= HVIS_WORLD_HEIGHT; ++j) {
 				Chunk* chunk = visChunks[{i, j, k}] = findOrCreateChunk({ i, j, k });
+				//if(!chunk->isBuilt) chunk->Build();
+			}
+		}
+	}
+
+	// late initialization
+	for (int i = centerChunkIdx.x - HVIS_WORLD_SZ; i <= centerChunkIdx.x + HVIS_WORLD_SZ; ++i) {
+		for (int k = centerChunkIdx.z - HVIS_WORLD_SZ; k <= centerChunkIdx.z + HVIS_WORLD_SZ; ++k) {
+			for (int j = -HVIS_WORLD_HEIGHT; j <= HVIS_WORLD_HEIGHT; ++j) {
+				Chunk* chunk = visChunks[{i, j, k}];
+				if (!chunk) continue;
+				if (!chunk->initialized) {
+					worldgen.GenerateBiomass(*chunk);
+					chunk->initialized = true;
+				}
 				if(!chunk->isBuilt) chunk->Build();
 			}
 		}
@@ -504,46 +596,6 @@ void World::Build() {
 	}
 }
 
-//updates the map of visible chunks, unloading invisible chunks and building newly visible chunks.
-//void World::UpdateChunks(glm::vec3& playerPosition) {
-//	
-//	glm::ivec3 cijk = Chunk::WorldToChunkIndex(playerPosition);
-//	int ci = cijk.x, ck = cijk.z;
-//	if (ci > centerChunkIdx.x + 1 || ci < centerChunkIdx.x - 1
-//		|| ck > centerChunkIdx.z + 1 || ck < centerChunkIdx.z - 1) {
-//		centerChunkIdx = cijk;
-//
-//		//iterate over visible chunks
-//		std::vector<p3i> to_remove{};
-//		for (auto& [cidx, chunk] : visChunks) {
-//			auto [i, j, k] = cidx;
-//			//if moved out of view
-//			if (i < ci - HVIS_WORLD_SZ || i > ci + HVIS_WORLD_SZ ||
-//				k < ck - HVIS_WORLD_SZ || k > ck + HVIS_WORLD_SZ) {
-//				chunk->DeleteBuffers();
-//				to_remove.push_back(cidx);
-//			}
-//		}
-//
-//		//iterate over chunks that needs to be rendered, finding them and 
-//		for (int i = ci - HVIS_WORLD_SZ; i <= ci + HVIS_WORLD_SZ; ++i) {
-//			for (int k = ck - HVIS_WORLD_SZ; k <= ck + HVIS_WORLD_SZ; ++k) {
-//				for (int j = -HVIS_WORLD_HEIGHT; j <= HVIS_WORLD_HEIGHT; ++j) {
-//					if (!visChunks.count({ i, j, k })) {
-//						Chunk* chunk = visChunks[{i, j, k}] = findOrCreateChunk({ i, j, k });
-//						//build the chunks if not already built!
-//						if (!chunk->isBuilt) chunk->Build();
-//					}
-//				}
-//			}
-//		}
-//
-//		for (p3i& rmvidx : to_remove) {
-//			visChunks.erase(rmvidx);
-//		}
-//	}
-//}
-
 void World::UpdateChunks(glm::vec3& playerPosition) {
 
 	glm::ivec3 cijk = Chunk::WorldToChunkIndex(playerPosition);
@@ -562,7 +614,7 @@ void World::UpdateChunks(glm::vec3& playerPosition) {
 				// VAO's and VBO's memory can be freed
 				chunk->isBuilt = false;
 				chunk->solidRenderObj.DeleteBuffers();
-				//chunk->cutoutRenderObj.DeleteBuffers();
+				chunk->cutoutRenderObj.DeleteBuffers();
 
 				to_remove.push_back(cidx);
 			}
@@ -574,10 +626,6 @@ void World::UpdateChunks(glm::vec3& playerPosition) {
 				for (int j = -HVIS_WORLD_HEIGHT; j <= HVIS_WORLD_HEIGHT; ++j) {
 					if (!visChunks.count({ i, j, k })) {
 						Chunk* chunk = visChunks[{i, j, k}] = findOrCreateChunk({ i, j, k });
-						// build the chunks if not already built!
-						if (!chunk->isBuilt) {
-							chunk->Build();
-						}
 					}
 				}
 			}
@@ -585,6 +633,18 @@ void World::UpdateChunks(glm::vec3& playerPosition) {
 
 		for (p3i& rmvidx : to_remove) {
 			visChunks.erase(rmvidx);
+		}
+
+		// 'late initialization' and build.
+		// 'late initialization' involves generation that requires adjacent chunks to be already built.
+		for (auto& [cidx, chunk] : visChunks) {
+			if (!chunk->initialized) {
+				worldgen.GenerateBiomass(*chunk);
+				chunk->initialized = true;
+			}
+			if (!chunk->isBuilt) {
+				chunk->Build();
+			}
 		}
 
 	}
