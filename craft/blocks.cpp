@@ -94,9 +94,9 @@ BlockDB::BlockDB() {
 
 }
 
-bool BlockDB::isSolidCube(Block* blk) {
-	if (!blk) return false;
-	if (blk->blockData->meshType == MeshType::CUBE && blk->blockData->renderType == RenderType::SOLID) return true;
+bool BlockDB::isSolidCube(BlockType blkTy) {
+	auto& blockData = tbl[blkTy];
+	if (blockData.meshType == MeshType::CUBE && blockData.renderType == RenderType::SOLID) return true;
 
 	return false;
 }

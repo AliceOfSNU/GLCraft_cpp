@@ -59,8 +59,9 @@ class Chunk {
 public:
 	using ivec3 = glm::ivec3;
 	using vec3 = glm::vec3;
+	using BlockType = BlockDB::BlockType;
 	static constexpr int SZ = 32, HEIGHT = 32; //a chunk is SZ*HEIGHT*SZ large. the y coordinate is up.
-	Block* grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
+	BlockType grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
 	
 	int blockHeight[SZ][SZ]; //the number of blocks in each column
 	BiomeType blockBiome[SZ][SZ]; //the biome type for each column

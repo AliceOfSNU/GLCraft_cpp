@@ -317,7 +317,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 			face = zface, iz = ii, zt += zDelta;
 		}
 
-		if (currChunk->grid[ix][iy][iz] != nullptr) {
+		if (currChunk->grid[ix][iy][iz] != BlockDB::BlockType::BLOCK_AIR) {
 			glm::ivec3 idx = currChunk->BlockGridToWorldIdx(glm::ivec3{ix, iy, iz});
 			
 			//if (selectedBlockIdx != idx) {

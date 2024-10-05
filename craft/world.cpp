@@ -56,26 +56,27 @@ void Chunk::Build() {
 	for (int i = 0; i < SZ; ++i) { //x dir
 		for (int j = 0; j < HEIGHT; ++j) { //y dir
 			for (int k = 0; k < SZ; ++k) { //z dir
-				if (!grid[i][j][k]) continue;
+				if (grid[i][j][k] == BlockType::BLOCK_AIR) continue;
 
 				//check if other block exists in that direction
 				//if not, add data for that direction's face.
 				//not this implementation uses short circuiting in branches
-				Block* block = grid[i][j][k];
 				glm::f32vec3 pos{ basepos.x + i, basepos.y + j, basepos.z + k };
-				switch (block->blockData->renderType) {
+				BlockType blkTy = grid[i][j][k];
+				auto& blockData = BlockDB::GetInstance().tbl[blkTy];
+				switch (blockData.renderType) {
 				case BlockDB::RenderType::SOLID:
-					if (i == 0 || i > 0 && !BlockDB::GetInstance().isSolidCube(grid[i - 1][j][k]))						solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::LEFT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
-					if (i == SZ - 1 || i < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i + 1][j][k]))			solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::RIGHT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
-					if (j == 0 || j > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j - 1][k]))						solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::BOTTOM);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
-					if (j == HEIGHT - 1 || j < HEIGHT - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j + 1][k]))	solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::TOP);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
-					if (k == 0 || k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))						solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::BACK);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
-					if (k == SZ - 1 || k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))			solidRenderObj.PlaceBlockFaceData(block->blockData->type, pos, Block::Face::FRONT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
+					if (i == 0 || i > 0 && !BlockDB::GetInstance().isSolidCube(grid[i - 1][j][k]))						solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
+					if (i == SZ - 1 || i < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i + 1][j][k]))			solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
+					if (j == 0 || j > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j - 1][k]))						solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
+					if (j == HEIGHT - 1 || j < HEIGHT - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j + 1][k]))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
+					if (k == 0 || k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))						solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
+					if (k == SZ - 1 || k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))			solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
 					break;
 				case BlockDB::RenderType::CUTOUT:
 					// place all faces, without culling
-					for (int f = 0; f < block->blockData->numFaces(); ++f) {
-						cutoutRenderObj.PlaceBlockFaceData(block->blockData->type, pos, f);
+					for (int f = 0; f < blockData.numFaces(); ++f) {
+						cutoutRenderObj.PlaceBlockFaceData(grid[i][j][k], pos, f);
 					}
 					break;
 				}
@@ -111,8 +112,8 @@ void Chunk::ReBuild() {
 //}
 
 void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
-	delete grid[bidx.x][bidx.y][bidx.z];
-	grid[bidx.x][bidx.y][bidx.z] = nullptr;
+	// deleting a block makes it air!
+	grid[bidx.x][bidx.y][bidx.z] = BlockType::BLOCK_AIR;
 	requiresRebuild = true;//requires rebuild.
 }
 
@@ -175,12 +176,7 @@ void Chunk::PlaceBlockAtCompileTime(const ivec3& blockIdx, const BlockDB::BlockT
 		if (!ck) return;
 		return ck->PlaceBlockAtCompileTime(bidx, blkTy);
 	}
-	if (!grid[bidx.x][bidx.y][bidx.z]) {
-		grid[bidx.x][bidx.y][bidx.z] = new Block(blkTy);
-	}
-	else {
-		grid[bidx.x][bidx.y][bidx.z]->blockData = &BlockDB::GetInstance().tbl[(int)blkTy];
-	}
+	grid[bidx.x][bidx.y][bidx.z] = blkTy;
 	requiresRebuild = true;
 	return;
 }
@@ -290,10 +286,10 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 				if (chunk->basepos.y + j > elevation) break;
 				BlockDB::BlockType type = BlockDB::BlockType::BLOCK_GRANITE;
 				//if (chunk->basepos.y + j == elevation) type = BlockDB::BlockType::BLOCK_GRASS;
-				Block* block = chunk->grid[i][j][k] = new Block(type);
-				block->pos.x = chunk->basepos.x + i;
-				block->pos.z = chunk->basepos.z + k;
-				block->pos.y = chunk->basepos.y + j;
+				chunk->grid[i][j][k] = type;
+				//block->pos.x = chunk->basepos.x + i;
+				//block->pos.z = chunk->basepos.z + k;
+				//block->pos.y = chunk->basepos.y + j;
 				chunk->blockCnt++;
 			}
 
@@ -301,10 +297,11 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 			if (isOcean) {
 				//fill up to water level = 0
 				for (; chunk->basepos.y + j <= 0 && j < Chunk::HEIGHT; ++j) {
-					Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_WATER);
-					block->pos.x = chunk->basepos.x + i;
-					block->pos.z = chunk->basepos.z + k;
-					block->pos.y = chunk->basepos.y + j;
+					chunk->grid[i][j][k] = BlockDB::BlockType::BLOCK_WATER;
+					//Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_WATER);
+					//block->pos.x = chunk->basepos.x + i;
+					//block->pos.z = chunk->basepos.z + k;
+					//block->pos.y = chunk->basepos.y + j;
 					chunk->blockCnt++;
 				}
 			}
@@ -445,7 +442,7 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 				while (j >= Chunk::HEIGHT) j--;
 				accDepth += surfDepth;
 				for (; j > top-accDepth && j >= 0 ; --j) {
-					chunk->grid[i][j][k]->blockData = &BlockDB::GetInstance().tbl[(int)surfType];
+					chunk->grid[i][j][k] = surfType;
 				}
 			}
 

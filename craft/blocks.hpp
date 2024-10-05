@@ -20,7 +20,7 @@ struct BlockMeshData {
 class BlockDB {
 public:
 	enum BlockType {
-		BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_POPPY, BLOCK_DANDELION, BLOCK_CYAN_FLOWER, BLOCK_AIR, BLOCK_COUNT
+		BLOCK_AIR, BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_POPPY, BLOCK_DANDELION, BLOCK_CYAN_FLOWER, BLOCK_COUNT
 	};
 
 	//this should be in opposite order
@@ -53,7 +53,7 @@ public:
 	}
 
 	std::vector<BlockDataRow> tbl;
-	bool isSolidCube(Block* blk);
+	bool isSolidCube(BlockType ty);
 	BlockMeshData& GetMeshData(MeshType ty);
 
 private:
