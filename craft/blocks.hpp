@@ -29,7 +29,7 @@ public:
 	};
 
 	enum RenderType {
-		SOLID, TRANSPARENT, CUTOUT, INVISIBLE
+		SOLID, TRANSPARENT, CUTOUT, WATER_RENDER, INVISIBLE
 	};
 
 	enum MeshType {

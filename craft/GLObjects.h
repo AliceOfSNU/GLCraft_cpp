@@ -75,6 +75,7 @@ public:
 
 	void Create();
 	void LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset);
+	void SetAttribDivisor(GLuint layout, GLuint instanceCnt);
 	void Bind() const;
 	void Unbind() const;
 	void Delete();

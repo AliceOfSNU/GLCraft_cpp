@@ -60,6 +60,12 @@
     <ClCompile Include="plants.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="collision.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="weather.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h">
@@ -81,6 +87,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="plants.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="collision.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="weather.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -112,6 +124,24 @@
     <None Include="cutout.fs">
       <Filter>Resource Files\shaders</Filter>
     </None>
+    <None Include="wave.fs">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="wave.vs">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="solidGUI.fs">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="solidGUI.vs">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="billboard.vs">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="cutout_basic.fs">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="timelog.txt">
@@ -129,6 +159,9 @@
       <Filter>Resource Files\textures</Filter>
     </Image>
     <Image Include="atlas.png">
+      <Filter>Resource Files\textures</Filter>
+    </Image>
+    <Image Include="raindrop.png">
       <Filter>Resource Files\textures</Filter>
     </Image>
   </ItemGroup>

@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
+#include <chrono>
 #include "GLObjects.h"
 #include "map.cpp"
 #include "layers.cpp"
@@ -108,6 +109,7 @@ public:
 
 	RenderObject solidRenderObj;
 	RenderObject cutoutRenderObj;
+	RenderObject waterRenderObj;
 
 };
 
@@ -219,7 +221,7 @@ public:
 	}
 
 	void CreateInitialChunks(glm::vec3 playerPosition); //creates chunks to start with.
-	Chunk* CurrentChunk(glm::vec3& position); //Pointer to current chunk.
+	Chunk* CurrentChunk(const glm::vec3& position); //Pointer to current chunk.
 	Chunk* GetChunkByIndex(const glm::ivec3& idx);
 	Chunk* GetChunkContainingBlock(const glm::ivec3& worldIdx);
 	void UpdateChunks(glm::vec3& playerPosition);

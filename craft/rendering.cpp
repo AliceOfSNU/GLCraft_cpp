@@ -1,7 +1,12 @@
 #include "rendering.hpp"
 
 
-RenderObject::RenderObject(RenderMode _mode):mode(_mode), isBuilt(false), hasBuffers(false), isRender(true) {}
+RenderObject::RenderObject(RenderMode _mode):mode(_mode), isBuilt(false), hasBuffers(false), isRender(true) {
+	const int CHUNK_SIZE = 32;
+	//vtxdata.reserve(CHUNK_SIZE * 4 * 3);
+	//uvdata.reserve(CHUNK_SIZE * 4 * 3);
+	//idxdata.reserve(CHUNK_SIZE * 6);
+}
 
 
 // appends block's mesh and texture data into internal storage vector

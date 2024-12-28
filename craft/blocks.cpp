@@ -76,9 +76,9 @@ BlockDB::BlockDB() {
 	tbl[BlockType::BLOCK_DIRT] =      BlockDataRow{ BlockType::BLOCK_DIRT,		 { BlockTextures::DIRT,			BlockTextures::DIRT,		 BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT} ,	   RenderType::SOLID, MeshType::CUBE};
 	tbl[BlockType::BLOCK_GRASS] =	  BlockDataRow{ BlockType::BLOCK_GRASS,		 { BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE, BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_TOP,	BlockTextures::DIRT} ,     RenderType::SOLID, MeshType::CUBE};
 	tbl[BlockType::BLOCK_SAND] = 	  BlockDataRow{ BlockType::BLOCK_SAND,		 { BlockTextures::SAND,			BlockTextures::SAND,		 BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND} ,	   RenderType::SOLID, MeshType::CUBE};
-	tbl[BlockType::BLOCK_WATER] =	  BlockDataRow{ BlockType::BLOCK_WATER,		 { BlockTextures::WATER,		BlockTextures::WATER,		 BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER},	   RenderType::SOLID, MeshType::CUBE };
 	tbl[BlockType::BLOCK_GRANITE] =	  BlockDataRow{ BlockType::BLOCK_GRANITE,	 { BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE},   RenderType::SOLID, MeshType::CUBE };
 	tbl[BlockType::BLOCK_SNOW_SOIL] = BlockDataRow{ BlockType::BLOCK_SNOW_SOIL,	 { BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	 BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	BlockTextures::SNOW,		BlockTextures::DIRT},	   RenderType::SOLID, MeshType::CUBE };
+	tbl[BlockType::BLOCK_WATER] =	  BlockDataRow{ BlockType::BLOCK_WATER,		 { BlockTextures::WATER,		BlockTextures::WATER,		 BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER},	   RenderType::WATER_RENDER, MeshType::CUBE };
 	
 	// TREES
 	tbl[BlockType::BLOCK_BIRCH_LOG] = BlockDataRow{ BlockType::BLOCK_BIRCH_LOG,	 { BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	 BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_TOP,	BlockTextures::BIRCH_TOP}, RenderType::SOLID,  MeshType::CUBE };
@@ -96,7 +96,7 @@ BlockDB::BlockDB() {
 
 bool BlockDB::isSolidCube(BlockType blkTy) {
 	auto& blockData = tbl[blkTy];
-	if (blockData.meshType == MeshType::CUBE && blockData.renderType == RenderType::SOLID) return true;
+	if (blockData.meshType == MeshType::CUBE && (blockData.renderType == RenderType::SOLID || blockData.renderType == RenderType::WATER_RENDER)) return true;
 
 	return false;
 }

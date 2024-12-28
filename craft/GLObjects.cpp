@@ -59,6 +59,10 @@ void VAO::LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type,
 	VBO.Unbind();
 }
 
+void VAO::SetAttribDivisor(GLuint layout, GLuint instanceCnt) {
+	glVertexAttribDivisor(layout, instanceCnt);
+}
+
 void VAO::Bind() const {
 	glBindVertexArray(ID);
 	//_is_bound = true;

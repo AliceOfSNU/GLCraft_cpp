@@ -53,7 +53,7 @@ public:
     glm::mat4 inversePerspective;
 
     // Constructor with vectors
-    Camera(glm::vec3 pos = glm::vec3(0.0f, 1.0f, 0.0f), 
+    Camera(glm::vec3 pos = glm::vec3(0.0f, 4.0f, 0.0f), 
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH,
         int screenWidth = 800, int screenHeight = 800)
         : front(glm::vec3(0.0f, 0.0f, -1.0f)), movementSpeed(SPEED), mouseSensitivity(SENSITIVITY), zoom(ZOOM), screenHeight(screenHeight), screenWidth(screenWidth)

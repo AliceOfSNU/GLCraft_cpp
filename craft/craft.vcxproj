@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="blocks.cpp" />
+    <ClCompile Include="collision.cpp" />
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="GLObjects.cpp" />
@@ -154,34 +155,44 @@
     <ClCompile Include="plants.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="stb.cpp" />
+    <ClCompile Include="weather.cpp" />
     <ClCompile Include="world.cpp" />
     <ClCompile Include="world.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="blocks.hpp" />
     <ClInclude Include="camera.h" />
+    <ClInclude Include="collision.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="gui.h" />
     <ClInclude Include="plants.hpp" />
     <ClInclude Include="ray.h" />
     <ClInclude Include="rendering.hpp" />
+    <ClInclude Include="weather.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="basic.fs" />
     <None Include="basic.vs" />
+    <None Include="billboard.vs" />
     <None Include="circleui.frag" />
     <None Include="circleui.vert" />
     <None Include="cutout.fs" />
+    <None Include="cutout_basic.fs" />
     <None Include="solidcolor.fs" />
     <None Include="solidcolor.vs" />
+    <None Include="solidGUI.fs" />
+    <None Include="solidGUI.vs" />
     <None Include="texture.fs" />
     <None Include="texture.vs" />
+    <None Include="wave.fs" />
+    <None Include="wave.vs" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="timelog.txt" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="atlas.png" />
+    <Image Include="raindrop.png" />
     <Image Include="temp\dirt_bottom_x64.png" />
     <Image Include="temp\dirt_side_x64.png" />
     <Image Include="temp\dirt_top_x64.png" />
