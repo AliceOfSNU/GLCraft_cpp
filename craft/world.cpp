@@ -36,12 +36,14 @@ Chunk::Chunk() :blockCnt(0), isBuilt(false), requiresRebuild(false), initialized
 	solidRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
 	cutoutRenderObj = RenderObject(RenderObject::RenderMode::CUTOUT);
 	waterRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
+	std::fill(&grid[0][0][0], &grid[0][0][0] + sizeof(grid)/sizeof(grid[0][0][0]), BlockType::BLOCK_AIR);
 };
 
 Chunk::Chunk(const ivec3& pos, const ivec3& cidx) : blockCnt(0), isBuilt(false), requiresRebuild(false), initialized(false), basepos(pos), chunkIdx(cidx) {
 	solidRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
 	cutoutRenderObj = RenderObject(RenderObject::RenderMode::CUTOUT);
 	waterRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
+	std::fill(&grid[0][0][0], &grid[0][0][0] + sizeof(grid)/sizeof(grid[0][0][0]), BlockType::BLOCK_AIR);
 };
 
 void Chunk::Build() {
@@ -485,7 +487,20 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 	}
 	return;
 }
+float TerrainGeneration::simpleNoiseFn(int ix, int iy) {
+	const unsigned w = 8 * sizeof(unsigned);
+	const unsigned s = w / 2;
+	unsigned a = ix, b = iy;
+	a *= 3284157443;
+	b ^= a << s | a >> w - s;
+	b *= 1911520717;
+	a ^= b << s | b >> w - s;
+	a *= 2048419325;
+	float random = a * (3.14159265 / ~(~0u >> 1));
 
+	//return 0.5f + 0.5f * sin(random);
+	return fmodf(random + 0.2f, 1.0f);
+}
 
 void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
 	for (int i = 0; i < Chunk::SZ; ++i) {

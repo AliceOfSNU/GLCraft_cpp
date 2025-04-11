@@ -106,17 +106,17 @@ int main() {
 	CircleFill circleUI(70.f);
 	WeatherParticleRenderObj rainRenderObj(60.0f, 100.0f, 3000);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("atlas.png", 64, 64, 16, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 16, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
 
-	Shader shader = Shader("basic.vs", "basic.fs");
-	Shader cutoutShader = Shader("basic.vs", "cutout.fs");
-	Shader weatherShader = Shader("billboard.vs", "cutout_basic.fs");
-	Shader solidColorShader = Shader("solidcolor.vs", "solidcolor.fs");
-	Shader waterShader = Shader("wave.vs", "wave.fs");
-	solidUIShader = std::make_shared<Shader>("solidGUI.vs", "solidGUI.fs");
+	Shader shader = Shader("resources/basic.vs", "resources/basic.fs");
+	Shader cutoutShader = Shader("resources/basic.vs", "resources/cutout.fs");
+	Shader weatherShader = Shader("resources/billboard.vs", "resources/cutout_basic.fs");
+	Shader solidColorShader = Shader("resources/solidcolor.vs", "resources/solidcolor.fs");
+	Shader waterShader = Shader("resources/wave.vs", "resources/wave.fs");
+	solidUIShader = std::make_shared<Shader>("resources/solidGUI.vs", "resources/solidGUI.fs");
 	
 	//get the uniform id for texture sampler
 	shader.use();
@@ -148,7 +148,8 @@ int main() {
 		glm::vec3 end_pos = curr_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
 
 		glm::vec3 updated_pos = updatePositionWithCollisionCheck(begin_pos, end_pos, { 1.0f, 2.0f, 1.0f });
-		last_pos = Camera::MainCamera.position = updated_pos + glm::vec3{0.5f, 1.5f, 0.5f};
+		Camera::MainCamera.position = updated_pos + glm::vec3{0.5f, 1.5f, 0.5f};
+		last_pos = Camera::MainCamera.position;
 
 		//block destruction
 		if (mouseHeld) {
@@ -180,10 +181,14 @@ int main() {
 
 			}
 		}
+		if (GUIManager::GetInstance().mouseEvent == 1) {
+			std::cout << selectedBlockIdx.x << "," << selectedBlockIdx.y << "," << selectedBlockIdx.z << '\n';
+			std::cout << selectedFace << std::endl;
+		}
 
 		//--------- RENDER
 
-		glClearColor(0.37f, 0.23f, 0.67f, 1.0f);
+		glClearColor(0.50f, 0.53f, 0.97f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -280,10 +285,6 @@ int main() {
 
 	}
 	
-	//vao.Delete();
-	//vbo_uv.Delete();
-	//vbo_pos.Delete();
-	//ebo.Delete();
 
 	arr_tex.UnBind();
 	//dirt_bottom_tex.Delete();
@@ -405,19 +406,24 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 	int endx = (int)(swAABB.start.x + swAABB.scale.x + 0.5f);
 	int endy = (int)(swAABB.start.y + swAABB.scale.y + 0.5f);
 	int endz = (int)(swAABB.start.z + swAABB.scale.z + 0.5f);
-	for (int x = (int)swAABB.start.x; x <= endx; ++x) {
-		for (int y = (int)swAABB.start.y; y <= endy; ++y) {
-			for (int z = (int)swAABB.start.z; z <= endz; ++z) {
+	for (int x = (int)(swAABB.start.x-0.5f); x <= endx; ++x) {
+		for (int y = (int)(swAABB.start.y-0.5f); y <= endy; ++y) {
+			for (int z = (int)(swAABB.start.z-0.5f); z <= endz; ++z) {
 				Chunk* chunk = World::GetInstance().CurrentChunk({ x, y, z });
 				Chunk::ivec3 blockidx = chunk->FindBlockIndex({ x, y, z });
 				if (chunk->grid[blockidx.x][blockidx.y][blockidx.z] != BlockDB::BlockType::BLOCK_AIR) {
-					colliders.push_back({ {x-0.5f, y-0.5f, z-0.5f}, {1.0f, 1.0f, 1.0f}});
+					colliders.push_back({ {x-0.5f, y-0.5f, z-0.5f}, {1.0f, 1.0f, 1.0f}, chunk->grid[blockidx.x][blockidx.y][blockidx.z] });
 				}
 			}
 		}
 	}
-	Collision::Collision col = checker.GetFirstHit(std::move(colliders));
-	return col.stop_pos;
+	Collision::Collision col = checker.GetFirstHit(colliders);
+	checker = Collision::CollisionCheck(col.stop_pos, col.stop_pos + col.remain_vel, box_dims);
+	Collision::Collision col2 = checker.GetFirstHit(colliders);
+	checker = Collision::CollisionCheck(col2.stop_pos, col2.stop_pos + col2.remain_vel, box_dims);
+	Collision::Collision col3 = checker.GetFirstHit(colliders);
+
+	return col3.stop_pos + col3.remain_vel;
 }
 
 void processInput(GLFWwindow* window)

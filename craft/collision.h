@@ -5,7 +5,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <iostream>
 
+#include "blocks.hpp"
 // helper function, returns final position after collisions
 glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin, glm::vec3 end, glm::vec3 boxdim);
 
@@ -23,13 +25,21 @@ namespace Collision {
 	// thus the vertices are all Z+0.5f form, so is start.
 	// and scales are integers.
 	struct AABB {
-		AABB(glm::vec3 start, glm::vec3 scale) : start(start), scale(scale) {}
+		AABB(glm::vec3 start, glm::vec3 scale, BlockDB::BlockType ty) : start(start), scale(scale), blkTy(ty) {}
 		glm::vec3 start;
 		glm::vec3 scale;
+		BlockDB::BlockType blkTy;
+	};
+
+	struct EntryEvent {
+		float x_entry, y_entry, z_entry;
+		float xt_entry, yt_entry, zt_entry;
+		BlockDB::BlockType type;
 	};
 
 	class CollisionCheck {
 	public:
+
 		// constructor. sets the required parameters for computing collision
 		// start_pos: position of the object at start of frame
 		// end_pos: position of object at end of frame
@@ -47,6 +57,7 @@ namespace Collision {
 		// boxes: AABBs to check for collision with.
 		Collision GetFirstHit(const std::vector<AABB>& boxes);
 
+		glm::vec3 GetHitNormal(EntryEvent entry);
 		// returns the second hit, assumes GetFirstHit() is already called.
 		// Collision GetSecondHit();
 

@@ -1,6 +1,6 @@
 #include "weather.h"
 
-WeatherParticleRenderObj::WeatherParticleRenderObj(float radius, float height, int num_particles): particle_cnt(num_particles), texture("raindrop.png", GL_TEXTURE0, GL_RGBA) {
+WeatherParticleRenderObj::WeatherParticleRenderObj(float radius, float height, int num_particles): particle_cnt(num_particles), texture("resources/raindrop.png", GL_TEXTURE0, GL_RGBA) {
 	offsets.resize(3*num_particles);
 	for (int i = 0; i < num_particles; ++i) {
 		float x = -radius + radius * 2 * (rand() % 1000 / 1000.f);

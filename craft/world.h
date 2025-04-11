@@ -19,8 +19,8 @@
 #include <iostream>
 #include <chrono>
 #include "GLObjects.h"
-#include "map.cpp"
-#include "layers.cpp"
+#include "map.h"
+#include "layers.h"
 #include "rendering.hpp"
 #include "blocks.hpp"
 #include "plants.hpp"
@@ -154,11 +154,11 @@ public:
 
 	TerrainGeneration();
 
-	//6¿ù±îÁö ¸ñÇ¥ -> grasslands biome¸¸ Á¦´ë·Î »ý¼º
+	//6ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ -> grasslands biomeï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	//fills grid with granite up to height sampled from noise
 	void GenerateRocks(Chunk* chunk);
 
-	//10¿ù±îÁö ¸ñÇ¥ -> 6°³ biome¿Ï¼º
+	//10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ -> 6ï¿½ï¿½ biomeï¿½Ï¼ï¿½
 	//entry point
 	void Generate(Chunk* chunk);
 
@@ -199,9 +199,11 @@ public:
 	void ReplaceSurface(Chunk* chunk);
 	
 	void GenerateBiomass(Chunk& chunk);
+
 	
 protected:
 	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
+	float simpleNoiseFn(int ix, int iy);
 };
 
 class World {
