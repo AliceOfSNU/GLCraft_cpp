@@ -73,6 +73,7 @@ public:
 	glm::ivec3 blockIdx;
 
 } blockDestructionTimer;
+Timer dragTimer;
 
 std::shared_ptr<Shader> solidUIShader;
 
@@ -153,12 +154,12 @@ int main() {
 
 		//block destruction
 		if (mouseHeld) {
+			
 			if (!selectedBlockExists) {
 				if (blockDestructionTimer.running) blockDestructionTimer.Stop();
 			}
 			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
 				//DestroyBlock(blockDestructionTimer.blockIdx);
-				cout << "timer goes off" << endl;
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
@@ -166,11 +167,9 @@ int main() {
 				}
 				blockDestructionTimer.Start();
 			}
-			else if (!blockDestructionTimer.running || selectedBlockIdx != blockDestructionTimer.blockIdx) {
-				//if selected block exists but timer isn't runinng, it should start running.
-				//also, if the selected block changes while mouse is still pressed, timer should restart.
+			else if ((!blockDestructionTimer.running && dragTimer.GetTime() > 0.5f) ||
+			(blockDestructionTimer.running && selectedBlockIdx != blockDestructionTimer.blockIdx)){
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
-
 				if (ch) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
 					if (ch->grid[bidx.x][bidx.y][bidx.z]) {
@@ -178,12 +177,27 @@ int main() {
 						blockDestructionTimer.Start();
 					}
 				}
-
 			}
 		}
 		if (GUIManager::GetInstance().mouseEvent == 1) {
 			std::cout << selectedBlockIdx.x << "," << selectedBlockIdx.y << "," << selectedBlockIdx.z << '\n';
 			std::cout << selectedFace << std::endl;
+			dragTimer.Start();
+		} else if(GUIManager::GetInstance().mouseEvent == 2){
+			dragTimer.Stop();
+			glm::vec2 drag = GUIManager::GetInstance().mouseDrag;
+			if(!blockDestructionTimer.running && selectedBlockExists && (drag.x*drag.x + drag.y*drag.y) < 16.0f){
+				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
+				if (ch != nullptr) {
+					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
+					int di[] {0, 1, 0, -1, 0, 0}, dj[] {0, 0, 0, 0, 1, -1}, dk[]{1, 0, -1, 0, 0, 0};
+					if(selectedFace != -1){
+						bidx += glm::ivec3{di[selectedFace], dj[selectedFace], dk[selectedFace]};
+						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_GRASS);
+					}
+				}
+			}
+			blockDestructionTimer.Stop();
 		}
 
 		//--------- RENDER
@@ -383,7 +397,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 			selectedBlockIdx = idx;
 			selectedFace = face;
 			selectedBlockExists = true;
-			//selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
+			// selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
 
 			break;
 		}
@@ -514,6 +528,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 		Camera::MainCamera.ProcessMouseMovement(dx, dy);
 	}
 	GUIManager::GetInstance().mouseXY = { mouseX, GUI::SCREEN_HEIGHT-mouseY };
+	GUIManager::GetInstance().mouseDelta = {mouseX - lastX, mouseY - lastY};
 	lastX = xpos;
 	lastY = ypos;
 }
@@ -522,26 +537,26 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	static double mouseLastX, mouseLastY;
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
 		if (!mouseHeld) { //pressed
-			cout << "0\n";
 			mouseHeld = true;
 			glfwGetCursorPos(window, &mouseLastX, &mouseLastY);
 
 			if (selectedBlockExists) {
 				blockDestructionTimer.blockIdx = selectedBlockIdx;
-				blockDestructionTimer.Start();
+				// blockDestructionTimer.Start();
 			}
 			GUIManager::GetInstance().mouseEvent = 1;
 		}
 		else { //released
 			GUIManager::GetInstance().mouseEvent = 2;
+			double mouseRelX, mouseRelY;
+			glfwGetCursorPos(window, &mouseRelX, &mouseRelY);
+			GUIManager::GetInstance().mouseDrag = {mouseRelX - mouseLastX, mouseRelY - mouseLastY};
 			mouseHeld = false;
-			blockDestructionTimer.Stop();
 		}
 	}
 	else { //held
 		GUIManager::GetInstance().mouseEvent = 0;
 	}
-	
 }
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
