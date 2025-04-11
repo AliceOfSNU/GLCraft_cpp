@@ -5,7 +5,7 @@ from PIL import Image
 BASE_DIR = '../craft'
 filenames = ['dirt_bottom_x64.png', 'dirt_side_x64.png', 'dirt_top_x64.png',
              'sand_x64.png','snowdirt_side_x64.png', 'snow_x64.png', 'granite_x64.png', 'water_x64.png', 'birch_top.png', 'birch_side.png',
-              'elm_top.png', 'elm_side.png', 'foilage.png']
+              'elm_top.png', 'elm_side.png', 'foilage.png', 'cyan_x64.png', 'poppy_x64.png', 'dandelion_x64.png']
 filenames = [os.path.join(BASE_DIR, x) for x in filenames]
 images = [Image.open(x) for x in filenames]
 widths, heights = zip(*(i.size for i in images))

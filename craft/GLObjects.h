@@ -6,7 +6,6 @@
 
 #include <glad/glad.h>
 #include <stb/stb_image.h>
-#include "shader.h"
 #include <cassert>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -53,9 +52,9 @@ public:
 	GLuint ID{};
 
 	void Create();
-	void Bind();
+	void Bind() const;
 	void BufferData(GLfloat* vertices, GLsizeiptr size);
-	void Unbind();
+	void Unbind() const;
 	void Delete();
 };
 
@@ -64,9 +63,9 @@ public:
 	GLuint ID{};
 
 	void Create();
-	void Bind();
+	void Bind() const;
 	void BufferData(GLuint* indices, GLsizeiptr size);
-	void Unbind();
+	void Unbind() const;
 	void Delete();
 };
 
@@ -76,8 +75,9 @@ public:
 
 	void Create();
 	void LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset);
-	void Bind();
-	void Unbind();
+	void SetAttribDivisor(GLuint layout, GLuint instanceCnt);
+	void Bind() const;
+	void Unbind() const;
 	void Delete();
 
 private:

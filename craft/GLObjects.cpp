@@ -1,3 +1,4 @@
+#define STB_IMAGE_IMPLEMENTATION
 #include "GLObjects.h"
 
 void VBO::Create() {
@@ -10,12 +11,12 @@ void VBO::BufferData(GLfloat* vertices, GLsizeiptr size) {
 	glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
 }
 
-void VBO::Bind() {
+void VBO::Bind() const {
 	glBindBuffer(GL_ARRAY_BUFFER, ID);
 }
 
 
-void VBO::Unbind() {
+void VBO::Unbind() const {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -34,11 +35,11 @@ void EBO::BufferData(GLuint* indices, GLsizeiptr size) {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices, GL_STATIC_DRAW);
 }
 
-void EBO::Bind() {
+void EBO::Bind() const {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ID);
 }
 
-void EBO::Unbind() {
+void EBO::Unbind() const {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
@@ -52,26 +53,31 @@ void VAO::Create() {
 }
 
 void VAO::LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset) {
-	assert(_is_bound);
+	//assert(_is_bound);
 	VBO.Bind();
 	glVertexAttribPointer(layout, numComponents, type, GL_FALSE, stride, offset);
 	glEnableVertexAttribArray(layout);
 	VBO.Unbind();
 }
 
-void VAO::Bind() {
-	glBindVertexArray(ID);
-	_is_bound = true;
+void VAO::SetAttribDivisor(GLuint layout, GLuint instanceCnt) {
+	glVertexAttribDivisor(layout, instanceCnt);
 }
 
-void VAO::Unbind() {
+void VAO::Bind() const {
+	glBindVertexArray(ID);
+	//_is_bound = true;
+}
+
+void VAO::Unbind() const {
 	glBindVertexArray(0);
-	_is_bound = false;
+	//_is_bound = false;
 }
 
 void VAO::Delete() {
 	glDeleteVertexArrays(1, &ID);
-	_is_bound = false;
+	ID = 0;
+	//_is_bound = false;
 }
 
 Texture2D::Texture2D(const char* image_path, GLenum slot, GLenum format){

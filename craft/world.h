@@ -9,7 +9,6 @@
 
 #include<glad/glad.h>
 #include <stb/stb_image.h>
-#include "shader.h"
 #include<cassert>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -18,40 +17,17 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
+#include <chrono>
 #include "GLObjects.h"
-#include "map.cpp"
-#include "layers.cpp"
+#include "map.h"
+#include "layers.h"
+#include "rendering.hpp"
+#include "blocks.hpp"
+#include "plants.hpp"
 
 using pii = std::pair<int, int>;
 using namespace MapGen;
 
-class BlockDB {
-public:
-	enum BlockType {
-		BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_COUNT
-	};
-
-	//this should be in opposite order
-	enum BlockTextures {
-		FOILAGE, ELM_SIDE, ELM_TOP, BIRCH_SIDE, BIRCH_TOP, WATER, GRANITE, SNOW, SNOW_SIDE, SAND, GRASS_TOP, GRASS_SIDE, DIRT
-	};
-
-	struct BlockDataRow {
-		BlockType type;
-		BlockTextures faceTextures[6];		//which Texture to put on each face
-	};
-
-	static BlockDB& GetInstance() {
-		static BlockDB instance;
-		return instance;
-	}
-
-	std::vector<BlockDataRow> tbl;
-private:
-	BlockDB();
-	BlockDB(BlockDB const& other) = delete;
-	BlockDB& operator=(BlockDB const& other) = delete;
-};
 
 class BiomeDB {
 public:
@@ -75,41 +51,6 @@ private:
 };
 
 
-class Block {
-public:
-	glm::f32vec3 pos;
-	BlockDB::BlockDataRow* blockData;
-	Block();
-	Block(BlockDB::BlockType type);
-
-	static float vertexPositions[8][3];
-	static int faces[6][4];
-	static int faceElements[6][6];
-	static float facePositions[6][12];
-	enum Face
-	{
-		FRONT, RIGHT, BACK, LEFT, TOP, BOTTOM
-	};
-
-	using vf = std::vector<GLfloat>;
-	using vi = std::vector<GLuint>;
-
-	//iterators are automatically advanced.
-	//returns the number of added vertices
-	GLuint PlaceFaceTexturesData(float*& dest, int face);
-	GLuint PlaceFaceTexturesData(vf& dest, int face);
-
-	GLuint PlaceFaceVertexData(float*& dest, int face);
-	GLuint PlaceFaceVertexData(vf& dest, int face);
-
-	GLuint PlaceFaceIndex(vi& dest, GLuint vtxn, int face);
-
-	//merged version of Place___Data.
-	GLuint PlaceFaceData(
-		vf& vtxit, vf& uvit, vi& idxit, INOUT GLuint& vtxn, int face
-	);
-};
-
 /*
 chunking manages rendering of multiple blocks.
 a chunk records positions of blocks and does not render adjacent, overlapping faces.
@@ -119,18 +60,20 @@ class Chunk {
 public:
 	using ivec3 = glm::ivec3;
 	using vec3 = glm::vec3;
+	using BlockType = BlockDB::BlockType;
 	static constexpr int SZ = 32, HEIGHT = 32; //a chunk is SZ*HEIGHT*SZ large. the y coordinate is up.
-	Block* grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
+	BlockType grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
 	
 	int blockHeight[SZ][SZ]; //the number of blocks in each column
 	BiomeType blockBiome[SZ][SZ]; //the biome type for each column
 	
 	size_t blockCnt;
-	GLuint vtxCnt; //number of vertices to render(VBO)
-	GLuint idxCnt; //number of indices to render(EBO)
+	//GLuint vtxCnt; //number of vertices to render(VBO)
+	//GLuint idxCnt; //number of indices to render(EBO)
 	ivec3 basepos; //the position of minimum x, y, z.
+	ivec3 chunkIdx; //unique integer index for this chunk.
 
-	bool isBuilt, requiresRebuild;
+	bool isBuilt, requiresRebuild, initialized;
 	/*
 	* The vertices of a cube are always numbered as below:
 	* 
@@ -145,17 +88,15 @@ public:
 
 	//blocks should be added to a chunk after construction.
 	Chunk();
-	Chunk(const ivec3& pos);
+	Chunk(const ivec3& pos, const ivec3& chunkIdx);
 
 	//main functions
 	void Build();
 	void ReBuild();
-	void Render();
-	void DeleteBuffers();
 
 	//manipulation
 	void DestroyBlockAt(const ivec3& bidx);
-	void PlaceBlockAt(const ivec3& bidx);
+	void PlaceBlockAtCompileTime(const ivec3& bidx, const BlockDB::BlockType blkTy);
 	
 	//utils
 	//testing worldpos lies inside this chunk's boundary
@@ -166,15 +107,10 @@ public:
 	ivec3 BlockGridToWorldIdx(const ivec3& grididx);
 	//ivec3 ChunkToWorldCoordinate(ivec3 chunkpos);
 
-private:
-	//data
-	std::vector<GLfloat> vtxdata, uvdata;
-	std::vector<GLuint> idxdata;
+	RenderObject solidRenderObj;
+	RenderObject cutoutRenderObj;
+	RenderObject waterRenderObj;
 
-	//renderer
-	VAO vao;
-	VBO vbo_pos, vbo_uv;
-	EBO ebo;
 };
 
 
@@ -218,11 +154,11 @@ public:
 
 	TerrainGeneration();
 
-	//6¿ù±îÁö ¸ñÇ¥ -> grasslands biome¸¸ Á¦´ë·Î »ý¼º
+	//6ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ -> grasslands biomeï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	//fills grid with granite up to height sampled from noise
 	void GenerateRocks(Chunk* chunk);
 
-	//10¿ù±îÁö ¸ñÇ¥ -> 6°³ biome¿Ï¼º
+	//10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ç¥ -> 6ï¿½ï¿½ biomeï¿½Ï¼ï¿½
 	//entry point
 	void Generate(Chunk* chunk);
 
@@ -262,10 +198,12 @@ public:
 	/// <param name="chunk">the chunk to operate on</param>
 	void ReplaceSurface(Chunk* chunk);
 	
-	void GeneratePlantation(Chunk* chunk);
+	void GenerateBiomass(Chunk& chunk);
+
 	
 protected:
 	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
+	float simpleNoiseFn(int ix, int iy);
 };
 
 class World {
@@ -277,19 +215,24 @@ public:
 	TerrainGeneration worldgen;
 	glm::ivec3 centerChunkIdx{ 0,0,0 };
 
-	static constexpr int VIS_WORLD_SZ = 5, HVIS_WORLD_SZ = 2, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
+	static constexpr int VIS_WORLD_SZ = 7, HVIS_WORLD_SZ = 3, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
 
-	World(glm::vec3 spawnPoint);
+	static World& GetInstance() {
+		static World instance = World({0.0f, 1.0f, 0.0f});
+		return instance;
+	}
 
 	void CreateInitialChunks(glm::vec3 playerPosition); //creates chunks to start with.
-	Chunk* CurrentChunk(glm::vec3& position); //Pointer to current chunk.
+	Chunk* CurrentChunk(const glm::vec3& position); //Pointer to current chunk.
 	Chunk* GetChunkByIndex(const glm::ivec3& idx);
 	Chunk* GetChunkContainingBlock(const glm::ivec3& worldIdx);
 	void UpdateChunks(glm::vec3& playerPosition);
-	void Render();
 	void Build();
 
 private:
+	World(glm::vec3 centerPoint);
+	World(World const& other) = delete;
+	World& operator=(World const& other) = delete;
 	Chunk* findOrCreateChunk(const p3i& chunkIdx);
 };
 #endif

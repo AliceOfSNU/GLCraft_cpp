@@ -1,0 +1,1 @@
+add_library(Generation STATIC layers.cpp map.cpp pch.cpp)
