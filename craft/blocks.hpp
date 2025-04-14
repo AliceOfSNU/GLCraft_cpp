@@ -44,7 +44,7 @@ public:
 		std::vector<BlockTextures> faceTextures;		//which Texture to put on each face
 		RenderType renderType;
 		MeshType meshType;
-
+		bool blocksLight;
 		int numFaces() {
 			return faceTextures.size();
 		}
@@ -58,6 +58,7 @@ public:
 	std::vector<BlockDataRow> tbl;
 
 	bool isSolidCube(BlockType ty);
+	bool isTransparentBlock(BlockType ty);
 	BlockMeshData& GetMeshData(MeshType ty);
 
 private:

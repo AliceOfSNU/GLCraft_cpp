@@ -10,7 +10,7 @@ RenderObject::RenderObject(RenderMode _mode):mode(_mode), isBuilt(false), hasBuf
 
 
 // appends block's mesh and texture data into internal storage vector
-void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos, unsigned int face) {
+void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos, unsigned int face, int8_t light_level) {
 	BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
 	BlockMeshData& mesh = BlockDB::GetInstance().GetMeshData(row.meshType);
 	// place vertex data. 4 vertices of a square * 3 (xyz)
@@ -34,6 +34,8 @@ void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos
 		uvdata.push_back(texf);
 	}
 
+	for(int i = 0; i < 4; ++i) lightdata.push_back((float)light_level);
+
 	// place idx data
 	idxdata.push_back(vtxcnt + 0);
 	idxdata.push_back(vtxcnt + 1);
@@ -56,6 +58,8 @@ void RenderObject::Build() {
 	vao.LinkAttrib(vbo_pos, 0, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
 	vbo_uv.BufferData(uvdata.data(), sizeof(uvdata[0]) * uvdata.size());
 	vao.LinkAttrib(vbo_uv, 1, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vbo_light.BufferData(lightdata.data(), sizeof(lightdata[0]) * lightdata.size());
+	vao.LinkAttrib(vbo_light, 2, 1, GL_FLOAT, sizeof(float), (void*)0);
 	ebo.BufferData(idxdata.data(), sizeof(idxdata[0]) * idxdata.size());
 	vao.Unbind();
 	ebo.Unbind();
@@ -63,6 +67,7 @@ void RenderObject::Build() {
 	// once built, we can dispose of internal storage.
 	vtxdata.clear();
 	uvdata.clear();
+	lightdata.clear();
 	idxdata.clear();
 	
 	isBuilt = true;
@@ -74,6 +79,7 @@ void RenderObject::CreateBuffers() {
 	vao.Create();
 	vbo_pos.Create();
 	vbo_uv.Create();
+	vbo_light.Create();
 	ebo.Create();
 
 	hasBuffers = true;
@@ -84,6 +90,7 @@ void RenderObject::DeleteBuffers() {
 		vao.Delete();
 		vbo_pos.Delete();
 		vbo_uv.Delete();
+		vbo_light.Delete();
 		ebo.Delete();
 	}
 

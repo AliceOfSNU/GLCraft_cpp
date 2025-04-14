@@ -37,6 +37,7 @@ Chunk::Chunk() :blockCnt(0), isBuilt(false), requiresRebuild(false), initialized
 	cutoutRenderObj = RenderObject(RenderObject::RenderMode::CUTOUT);
 	waterRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
 	std::fill(&grid[0][0][0], &grid[0][0][0] + sizeof(grid)/sizeof(grid[0][0][0]), BlockType::BLOCK_AIR);
+	std::fill(&light[0][0][0], &light[0][0][0] + sizeof(light)/sizeof(light[0][0][0]), 0);
 };
 
 Chunk::Chunk(const ivec3& pos, const ivec3& cidx) : blockCnt(0), isBuilt(false), requiresRebuild(false), initialized(false), basepos(pos), chunkIdx(cidx) {
@@ -44,8 +45,39 @@ Chunk::Chunk(const ivec3& pos, const ivec3& cidx) : blockCnt(0), isBuilt(false),
 	cutoutRenderObj = RenderObject(RenderObject::RenderMode::CUTOUT);
 	waterRenderObj = RenderObject(RenderObject::RenderMode::OPAQUE);
 	std::fill(&grid[0][0][0], &grid[0][0][0] + sizeof(grid)/sizeof(grid[0][0][0]), BlockType::BLOCK_AIR);
+	std::fill(&light[0][0][0], &light[0][0][0] + sizeof(light)/sizeof(light[0][0][0]), 0);
 };
 
+void Chunk::BuildLights(){
+	std::fill(&light[0][0][0], &light[0][0][0] + sizeof(light)/sizeof(light[0][0][0]), 0);
+	BlockDB& blockDB = BlockDB::GetInstance();
+
+	std::queue<std::tuple<int, int, int>> floodfillq;
+	for(int i = 0; i < SZ; ++i){
+		for(int k = 0; k < SZ; ++k){
+			int j = HEIGHT-1;
+			while(j >= 0 && blockDB.isTransparentBlock(grid[i][j][k])){
+				light[i][j][k] = 15;  floodfillq.push({i, j, k});j--;
+			}
+		}
+	}
+
+	int di[] {-1, 0, 1, 0}, dk[] {0, 1, 0, -1};
+	while(floodfillq.size()){
+		auto [i, j, k] = floodfillq.front(); floodfillq.pop();
+		for(int dir = 0; dir < 4; ++dir){
+			int ni = i + di[dir], nj = j, nk = k + dk[dir];
+			if(ni < 0 || ni >= SZ || nk < 0 || nk >= SZ) continue;
+			if(light[ni][nj][nk] == 0 && blockDB.isTransparentBlock(grid[ni][nj][nk])){
+				light[ni][nj][nk] = std::max(1, light[i][j][k] - 1); floodfillq.push({ni, nj, nk});
+			} 
+		}
+		// light propagating downwards
+		if(j > 0 && light[i][j-1][k] == 0){
+			light[i][j-1][k] = std::max(1, light[i][j][k] - 1); floodfillq.push({i, j-1, k});
+		}
+	}
+}
 void Chunk::Build() {
 
 	//Building a chunk twice is an error, because we could be wasting computation.
@@ -55,10 +87,13 @@ void Chunk::Build() {
 	// At this point, we assume all blocks have been put to our grid
 	// when more blocks are added, or blocks are deleted from the chunk,
 	// the chunk must be rebuilt.
+	// BuildLights();
 
 	// get references to adjacent chunks
 	Chunk* in_chk = World::GetInstance().GetChunkByIndex(chunkIdx - Chunk::ivec3{ 1, 0, 0 });
 	Chunk* ip_chk = World::GetInstance().GetChunkByIndex(chunkIdx + Chunk::ivec3{ 1, 0, 0 });
+	Chunk* jn_chk = World::GetInstance().GetChunkByIndex(chunkIdx - Chunk::ivec3{ 0, 1, 0 });
+	Chunk* jp_chk = World::GetInstance().GetChunkByIndex(chunkIdx + Chunk::ivec3{ 0, 1, 0 });
 	Chunk* kn_chk = World::GetInstance().GetChunkByIndex(chunkIdx - Chunk::ivec3{ 0, 0, 1 });
 	Chunk* kp_chk = World::GetInstance().GetChunkByIndex(chunkIdx + Chunk::ivec3{ 0, 0, 1 });
 	//vtxCnt = 0, idxCnt = 0;
@@ -77,43 +112,45 @@ void Chunk::Build() {
 				switch (blockData.renderType) {
 				case BlockDB::RenderType::SOLID:
 					// place left and right
-					if (i == 0 && (!in_chk || !blockDB.isSolidCube(in_chk->grid[SZ-1][j][k])))		solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT);
-					else if(i > 0 && !blockDB.isSolidCube(grid[i - 1][j][k]))						solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
-					if (i == SZ - 1 && (!ip_chk || !blockDB.isSolidCube(ip_chk->grid[0][j][k])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT);
-					else if(i < SZ - 1 && !blockDB.isSolidCube(grid[i + 1][j][k]))					solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
+					if (i == 0 && (!in_chk || !blockDB.isSolidCube(in_chk->grid[SZ-1][j][k])))		solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, in_chk?in_chk->light[SZ-1][j][k]:15);
+					else if(i > 0 && !blockDB.isSolidCube(grid[i - 1][j][k]))						solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, light[i-1][j][k]);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
+					if (i == SZ - 1 && (!ip_chk || !blockDB.isSolidCube(ip_chk->grid[0][j][k])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, ip_chk?ip_chk->light[0][j][k]:15);
+					else if(i < SZ - 1 && !blockDB.isSolidCube(grid[i + 1][j][k]))					solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, light[i+1][j][k]);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
 					// place top and bottom
-					if (j == 0 || j > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j - 1][k]))						solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
-					if (j == HEIGHT - 1 || j < HEIGHT - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j + 1][k]))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
+					if (j == 0 && (!jn_chk || !blockDB.isSolidCube(jn_chk->grid[i][HEIGHT-1][k])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM, 15);
+					else if(j > 0 && !blockDB.isSolidCube(grid[i][j - 1][k]))						solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM, light[i][j-1][k]);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
+					if (j == HEIGHT - 1 && (!jp_chk || !blockDB.isSolidCube(jp_chk->grid[i][0][k])))solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP, 15);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
+					else if (j < HEIGHT - 1 && !blockDB.isSolidCube(grid[i][j + 1][k]))				solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP, light[i][j+1][k]);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
 					
 					// place back and front
-					if (k == 0 && (!kn_chk || !blockDB.isSolidCube(kn_chk->grid[i][j][SZ - 1])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK);
-					else if(k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))		solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
-					if (k == SZ - 1 && (!kp_chk || !blockDB.isSolidCube(kp_chk->grid[i][j][0])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT);
-					else if( k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
+					if (k == 0 && (!kn_chk || !blockDB.isSolidCube(kn_chk->grid[i][j][SZ - 1])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, kn_chk?kn_chk->light[i][j][SZ-1]:15);
+					else if(k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))		solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, light[i][j][k-1]);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
+					if (k == SZ - 1 && (!kp_chk || !blockDB.isSolidCube(kp_chk->grid[i][j][0])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, kp_chk?kp_chk->light[i][j][0]:15);
+					else if( k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, light[i][j][k+1]);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
 					break;
 				case BlockDB::RenderType::SHAPE_SOLID:
 					Block::PlaceModelData(blkTy, pos, solidRenderObj.vtxdata, solidRenderObj.uvdata, solidRenderObj.idxdata, solidRenderObj.vtxcnt, solidRenderObj.idxcnt);
 					break;
 				case BlockDB::RenderType::WATER_RENDER:
 					// place left and right
-					if (i == 0 && (!in_chk || !blockDB.isSolidCube(in_chk->grid[SZ - 1][j][k])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT);
-					else if (i > 0 && !blockDB.isSolidCube(grid[i - 1][j][k]))						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
-					if (i == SZ - 1 && (!ip_chk || !blockDB.isSolidCube(ip_chk->grid[0][j][k])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT);
-					else if (i < SZ - 1 && !blockDB.isSolidCube(grid[i + 1][j][k]))					waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
+					if (i == 0 && (!in_chk || !blockDB.isSolidCube(in_chk->grid[SZ - 1][j][k])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, 15);
+					else if (i > 0 && !blockDB.isSolidCube(grid[i - 1][j][k]))						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, 15);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
+					if (i == SZ - 1 && (!ip_chk || !blockDB.isSolidCube(ip_chk->grid[0][j][k])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, 15);
+					else if (i < SZ - 1 && !blockDB.isSolidCube(grid[i + 1][j][k]))					waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, 15);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
 					// place top and bottom
-					if (j == 0 || j > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j - 1][k]))						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
-					if (j == HEIGHT - 1 || j < HEIGHT - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j + 1][k]))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
+					if (j == 0 || j > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j - 1][k]))						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM,15 );//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
+					if (j == HEIGHT - 1 || j < HEIGHT - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j + 1][k]))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP,15);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
 
 					// place back and front
-					if (k == 0 && (!kn_chk || !blockDB.isSolidCube(kn_chk->grid[i][j][SZ - 1])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK);
-					else if (k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))		waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
-					if (k == SZ - 1 && (!kp_chk || !blockDB.isSolidCube(kp_chk->grid[i][j][0])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT);
-					else if (k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
+					if (k == 0 && (!kn_chk || !blockDB.isSolidCube(kn_chk->grid[i][j][SZ - 1])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, 15);
+					else if (k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))		waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, 15);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
+					if (k == SZ - 1 && (!kp_chk || !blockDB.isSolidCube(kp_chk->grid[i][j][0])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, 15);
+					else if (k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, 15);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
 					break;
 				case BlockDB::RenderType::CUTOUT:
 					// place all faces, without culling
 					for (int f = 0; f < blockData.numFaces(); ++f) {
-						cutoutRenderObj.PlaceBlockFaceData(grid[i][j][k], pos, f);
+						cutoutRenderObj.PlaceBlockFaceData(grid[i][j][k], pos, f, 15);
 					}
 					break;
 				}
@@ -154,6 +191,29 @@ void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
 	// deleting a block makes it air!
 	grid[bidx.x][bidx.y][bidx.z] = BlockType::BLOCK_AIR;
 	requiresRebuild = true;//requires rebuild.
+	if(bidx.y == 0){
+		Chunk* jn_chk = World::GetInstance().GetChunkByIndex(chunkIdx - Chunk::ivec3{ 0, 1, 0 });
+		if(jn_chk) jn_chk->requiresRebuild = true;
+	} else if(bidx.y == HEIGHT-1){
+		Chunk* jp_chk = World::GetInstance().GetChunkByIndex(chunkIdx + Chunk::ivec3{ 0, 1, 0 });
+		if(jp_chk) jp_chk->requiresRebuild = true;
+	}
+
+	if(bidx.x == 0){
+		Chunk* in_chk = World::GetInstance().GetChunkByIndex(chunkIdx - Chunk::ivec3{ 1, 0, 0 });
+		if(in_chk) in_chk->requiresRebuild = true;
+	} else if(bidx.x == SZ-1){
+		Chunk* ip_chk = World::GetInstance().GetChunkByIndex(chunkIdx + Chunk::ivec3{ 1, 0, 0 });
+		if(ip_chk) ip_chk->requiresRebuild = true;
+	}
+
+	if(bidx.z == 0){
+		Chunk* kn_chk = World::GetInstance().GetChunkByIndex(chunkIdx - Chunk::ivec3{ 0, 0, 1 });
+		if(kn_chk) kn_chk->requiresRebuild = true;
+	} else if(bidx.z == SZ-1){
+		Chunk* kp_chk = World::GetInstance().GetChunkByIndex(chunkIdx + Chunk::ivec3{ 0, 0, 1 });
+		if(kp_chk) kp_chk->requiresRebuild = true;
+	}
 }
 
 bool Chunk::TestAABB(vec3 worldpos) {
@@ -560,15 +620,12 @@ void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
 void TerrainGeneration::Generate(Chunk* chunk) {
 	BiomeMap_t biomeMp;
 	LandscapeMap_t lscapeMp;
-	auto begin = std::chrono::steady_clock::now();
 	FindOrCreateMap({ chunk->basepos.x, chunk->basepos.z }, OUT biomeMp, OUT lscapeMp);
 	GenerateBiomeFromMap(chunk, biomeMp);
 	GenerateTerrainHeightsFromMap(chunk, lscapeMp, biomeMp);
 	GenerateRocks(chunk);
 	ReplaceSurface(chunk);
 	auto end = std::chrono::steady_clock::now();
-	auto timeus = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-	std::cout << "gen chunk @ " << chunk->basepos.x << "," << chunk->basepos.y << "," << chunk->basepos.z << " time:" << timeus << std::endl;
 
 	//GenerateBiomass(*chunk);
 }
@@ -629,6 +686,9 @@ void World::CreateInitialChunks(glm::vec3 spawnPoint){
 	}
 
 	for (auto& [cidx, chunk] : visChunks) {
+		if (!chunk->isBuilt) chunk->BuildLights();
+	}
+	for (auto& [cidx, chunk] : visChunks) {
 		if (!chunk->isBuilt) chunk->Build();
 	}
 
@@ -661,7 +721,11 @@ void World::Build() {
 	//rebuild it.
 	for (auto& [cidx, chunk] : visChunks) {
 		if (chunk->requiresRebuild) {
-			std::cout << "rebuilding " << chunk->basepos.x << "," << chunk->basepos.y << "," << chunk->basepos.z << std::endl;
+			chunk->BuildLights();
+		}
+	}
+	for (auto& [cidx, chunk] : visChunks) {
+		if (chunk->requiresRebuild) {
 			chunk->ReBuild();
 		}
 	}
@@ -713,6 +777,10 @@ void World::UpdateChunks(glm::vec3& playerPosition) {
 				worldgen.GenerateBiomass(*chunk);
 				chunk->initialized = true;
 			}
+		}
+		
+		for (auto& [cidx, chunk] : visChunks) {
+			if (!chunk->isBuilt)chunk->BuildLights();
 		}
 		for (auto& [cidx, chunk] : visChunks) {
 			if (!chunk->isBuilt)chunk->Build();

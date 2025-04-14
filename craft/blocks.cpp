@@ -72,35 +72,35 @@ Block::Block(BlockDB::BlockType type) {
 BlockDB::BlockDB() {
 	tbl.resize(BlockType::BLOCK_COUNT);
 	//DATA
-													//ID						 /TEXTUURE FRONT				LEFT						 BACK						RIGHT						TOP							BOTTOM
-	tbl[BlockType::BLOCK_DIRT] =      BlockDataRow{ BlockType::BLOCK_DIRT,		 { BlockTextures::DIRT,			BlockTextures::DIRT,		 BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT} ,	   RenderType::SOLID, MeshType::CUBE};
-	tbl[BlockType::BLOCK_GRASS] =	  BlockDataRow{ BlockType::BLOCK_GRASS,		 { BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE, BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_TOP,	BlockTextures::DIRT} ,     RenderType::SOLID, MeshType::CUBE};
-	tbl[BlockType::BLOCK_SAND] = 	  BlockDataRow{ BlockType::BLOCK_SAND,		 { BlockTextures::SAND,			BlockTextures::SAND,		 BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND} ,	   RenderType::SOLID, MeshType::CUBE};
-	tbl[BlockType::BLOCK_GRANITE] =	  BlockDataRow{ BlockType::BLOCK_GRANITE,	 { BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE},   RenderType::SOLID, MeshType::CUBE };
-	tbl[BlockType::BLOCK_SNOW_SOIL] = BlockDataRow{ BlockType::BLOCK_SNOW_SOIL,	 { BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	 BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	BlockTextures::SNOW,		BlockTextures::DIRT},	   RenderType::SOLID, MeshType::CUBE };
-	tbl[BlockType::BLOCK_WATER] =	  BlockDataRow{ BlockType::BLOCK_WATER,		 { BlockTextures::WATER,		BlockTextures::WATER,		 BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER},	   RenderType::WATER_RENDER, MeshType::CUBE };
+													//ID						 /TEXTUURE FRONT				LEFT						 BACK						RIGHT						TOP							BOTTOM						//renderType	  //MeshType		//blocksLight
+	tbl[BlockType::BLOCK_DIRT] =      BlockDataRow{ BlockType::BLOCK_DIRT,		 { BlockTextures::DIRT,			BlockTextures::DIRT,		 BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT,		BlockTextures::DIRT} ,	   RenderType::SOLID, MeshType::CUBE, 	true};
+	tbl[BlockType::BLOCK_GRASS] =	  BlockDataRow{ BlockType::BLOCK_GRASS,		 { BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_SIDE,	 BlockTextures::GRASS_SIDE, BlockTextures::GRASS_SIDE,	BlockTextures::GRASS_TOP,	BlockTextures::DIRT} ,     RenderType::SOLID, MeshType::CUBE, 	true};
+	tbl[BlockType::BLOCK_SAND] = 	  BlockDataRow{ BlockType::BLOCK_SAND,		 { BlockTextures::SAND,			BlockTextures::SAND,		 BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND,		BlockTextures::SAND} ,	   RenderType::SOLID, MeshType::CUBE, 	true};
+	tbl[BlockType::BLOCK_GRANITE] =	  BlockDataRow{ BlockType::BLOCK_GRANITE,	 { BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE},   RenderType::SOLID, MeshType::CUBE, 	true };
+	tbl[BlockType::BLOCK_SNOW_SOIL] = BlockDataRow{ BlockType::BLOCK_SNOW_SOIL,	 { BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	 BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	BlockTextures::SNOW,		BlockTextures::DIRT},	   RenderType::SOLID, MeshType::CUBE, 	true };
+	tbl[BlockType::BLOCK_WATER] =	  BlockDataRow{ BlockType::BLOCK_WATER,		 { BlockTextures::WATER,		BlockTextures::WATER,		 BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER},	   RenderType::WATER_RENDER, MeshType::CUBE, true};
 	
 	// TREES
-	tbl[BlockType::BLOCK_BIRCH_LOG] = BlockDataRow{ BlockType::BLOCK_BIRCH_LOG,	 { BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	 BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_TOP,	BlockTextures::BIRCH_TOP}, RenderType::SOLID,  MeshType::CUBE };
-	tbl[BlockType::BLOCK_ELM_LOG] =   BlockDataRow{ BlockType::BLOCK_ELM_LOG,	 { BlockTextures::ELM_SIDE,		BlockTextures::ELM_SIDE,	 BlockTextures::ELM_SIDE,	BlockTextures::ELM_SIDE,	BlockTextures::ELM_TOP,		BlockTextures::ELM_TOP},   RenderType::SOLID,  MeshType::CUBE };
-	tbl[BlockType::BLOCK_FOILAGE] =	  BlockDataRow{ BlockType::BLOCK_FOILAGE,	 { BlockTextures::FOILAGE,		BlockTextures::FOILAGE,		 BlockTextures::FOILAGE,	BlockTextures::FOILAGE,		BlockTextures::FOILAGE,		BlockTextures::FOILAGE},   RenderType::CUTOUT, MeshType::CUBE };
+	tbl[BlockType::BLOCK_BIRCH_LOG] = BlockDataRow{ BlockType::BLOCK_BIRCH_LOG,	 { BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	 BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_TOP,	BlockTextures::BIRCH_TOP}, RenderType::SOLID,  MeshType::CUBE, true };
+	tbl[BlockType::BLOCK_ELM_LOG] =   BlockDataRow{ BlockType::BLOCK_ELM_LOG,	 { BlockTextures::ELM_SIDE,		BlockTextures::ELM_SIDE,	 BlockTextures::ELM_SIDE,	BlockTextures::ELM_SIDE,	BlockTextures::ELM_TOP,		BlockTextures::ELM_TOP},   RenderType::SOLID,  MeshType::CUBE, true };
+	tbl[BlockType::BLOCK_FOILAGE] =	  BlockDataRow{ BlockType::BLOCK_FOILAGE,	 { BlockTextures::FOILAGE,		BlockTextures::FOILAGE,		 BlockTextures::FOILAGE,	BlockTextures::FOILAGE,		BlockTextures::FOILAGE,		BlockTextures::FOILAGE},   RenderType::CUTOUT, MeshType::CUBE, true };
 	
 	// FLOWERS
-	tbl[BlockType::BLOCK_POPPY] =	  BlockDataRow{ BlockType::BLOCK_POPPY, 	 { BlockTextures::POPPY,		BlockTextures::POPPY,		},	RenderType::CUTOUT, MeshType::FLOWER };
-	tbl[BlockType::BLOCK_DANDELION] = BlockDataRow{ BlockType::BLOCK_DANDELION,	 { BlockTextures::DANDELION,	BlockTextures::DANDELION,   },	RenderType::CUTOUT, MeshType::FLOWER };
-	tbl[BlockType::BLOCK_CYAN_FLOWER]=BlockDataRow{ BlockType::BLOCK_CYAN_FLOWER,{ BlockTextures::CYAN_FLOWER,	BlockTextures::CYAN_FLOWER, },	RenderType::CUTOUT, MeshType::FLOWER };
-	tbl[BlockType::BLOCK_AIR] =		  BlockDataRow{ BlockType::BLOCK_AIR,		 { BlockTextures::NONE,			BlockTextures::NONE,		 BlockTextures::NONE,		BlockTextures::NONE,		BlockTextures::NONE,		BlockTextures::NONE},	   RenderType::INVISIBLE, MeshType::CUBE };
+	tbl[BlockType::BLOCK_POPPY] =	  BlockDataRow{ BlockType::BLOCK_POPPY, 	 { BlockTextures::POPPY,		BlockTextures::POPPY,		},	RenderType::CUTOUT, MeshType::FLOWER, false };
+	tbl[BlockType::BLOCK_DANDELION] = BlockDataRow{ BlockType::BLOCK_DANDELION,	 { BlockTextures::DANDELION,	BlockTextures::DANDELION,   },	RenderType::CUTOUT, MeshType::FLOWER, false };
+	tbl[BlockType::BLOCK_CYAN_FLOWER]=BlockDataRow{ BlockType::BLOCK_CYAN_FLOWER,{ BlockTextures::CYAN_FLOWER,	BlockTextures::CYAN_FLOWER, },	RenderType::CUTOUT, MeshType::FLOWER, false };
+	tbl[BlockType::BLOCK_AIR] =		  BlockDataRow{ BlockType::BLOCK_AIR,		 { BlockTextures::NONE,			BlockTextures::NONE,		 BlockTextures::NONE,		BlockTextures::NONE,		BlockTextures::NONE,		BlockTextures::NONE},	   RenderType::INVISIBLE, MeshType::CUBE, false };
 
 	// STAIRS
-	tbl[BlockType::BLOCK_WOODEN_STAIR_P0] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P0, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
-	tbl[BlockType::BLOCK_WOODEN_STAIR_P90] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P90, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
-	tbl[BlockType::BLOCK_WOODEN_STAIR_P180] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P180, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
-	tbl[BlockType::BLOCK_WOODEN_STAIR_P270] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P270, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
+	tbl[BlockType::BLOCK_WOODEN_STAIR_P0] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P0, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_WOODEN_STAIR_P90] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P90, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_WOODEN_STAIR_P180] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P180, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_WOODEN_STAIR_P270] = BlockDataRow{ BlockType::BLOCK_WOODEN_STAIR_P270, { BlockTextures::WOOD,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
 	
-	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P0] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P0, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
-	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P90] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P90, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
-	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P180] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P180, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
-	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P270] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P270, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED };
+	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P0] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P0, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P90] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P90, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P180] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P180, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P270] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P270, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
 	
 
 }
@@ -110,6 +110,11 @@ bool BlockDB::isSolidCube(BlockType blkTy) {
 	if (blockData.meshType == MeshType::CUBE && (blockData.renderType == RenderType::SOLID || blockData.renderType == RenderType::WATER_RENDER)) return true;
 
 	return false;
+}
+
+bool BlockDB::isTransparentBlock(BlockType blkTy) {
+	auto& blockData = tbl[blkTy];
+	return !blockData.blocksLight;
 }
 
 BlockMeshData& BlockDB::GetMeshData(MeshType ty) {

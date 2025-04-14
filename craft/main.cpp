@@ -107,7 +107,7 @@ int main() {
 	CircleFill circleUI(70.f);
 	WeatherParticleRenderObj rainRenderObj(60.0f, 100.0f, 3000);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 16, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 18, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
@@ -193,7 +193,7 @@ int main() {
 					int di[] {0, 1, 0, -1, 0, 0}, dj[] {0, 0, 0, 0, 1, -1}, dk[]{1, 0, -1, 0, 0, 0};
 					if(selectedFace != -1){
 						bidx += glm::ivec3{di[selectedFace], dj[selectedFace], dk[selectedFace]};
-						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_WOODEN_STAIR_P0);
+						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_GRASS);
 					}
 				}
 			}
@@ -202,7 +202,7 @@ int main() {
 
 		//--------- RENDER
 
-		glClearColor(0.50f, 0.53f, 0.97f, 1.0f);
+		glClearColor(0.20f, 0.33f, 0.47f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -226,7 +226,7 @@ int main() {
 		shader.setMat4f("model", glm::value_ptr(model));
 		shader.setMat4f("view", glm::value_ptr(view));
 		shader.setMat4f("proj", glm::value_ptr(proj));
-
+		shader.setFloat("daylight_value", 0.5f);
 		// 1. Opaque pass
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->solidRenderObj.isBuilt || !chunk->solidRenderObj.isRender) continue;
@@ -239,6 +239,8 @@ int main() {
 		waterShader.setMat4f("model", glm::value_ptr(model));
 		waterShader.setMat4f("view", glm::value_ptr(view));
 		waterShader.setMat4f("proj", glm::value_ptr(proj));
+		waterShader.setFloat("daylight_value", 0.5f);
+
 		Chunk::ivec3 curridx = Chunk::WorldToChunkIndex(Camera::MainCamera.position);
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->waterRenderObj.isBuilt || !chunk->waterRenderObj.isRender) continue;
@@ -261,6 +263,8 @@ int main() {
 		cutoutShader.setMat4f("model", glm::value_ptr(model));
 		cutoutShader.setMat4f("view", glm::value_ptr(view));
 		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
+		cutoutShader.setFloat("daylight_value", 0.5f);
+
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
 			chunk->cutoutRenderObj.vao.Bind();
