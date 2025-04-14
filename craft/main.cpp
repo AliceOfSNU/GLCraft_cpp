@@ -73,6 +73,7 @@ public:
 	glm::ivec3 blockIdx;
 
 } blockDestructionTimer;
+Timer dragTimer;
 
 std::shared_ptr<Shader> solidUIShader;
 
@@ -106,7 +107,7 @@ int main() {
 	CircleFill circleUI(70.f);
 	WeatherParticleRenderObj rainRenderObj(60.0f, 100.0f, 3000);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 16, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 18, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
@@ -153,12 +154,12 @@ int main() {
 
 		//block destruction
 		if (mouseHeld) {
+			
 			if (!selectedBlockExists) {
 				if (blockDestructionTimer.running) blockDestructionTimer.Stop();
 			}
 			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
 				//DestroyBlock(blockDestructionTimer.blockIdx);
-				cout << "timer goes off" << endl;
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
@@ -166,11 +167,9 @@ int main() {
 				}
 				blockDestructionTimer.Start();
 			}
-			else if (!blockDestructionTimer.running || selectedBlockIdx != blockDestructionTimer.blockIdx) {
-				//if selected block exists but timer isn't runinng, it should start running.
-				//also, if the selected block changes while mouse is still pressed, timer should restart.
+			else if ((!blockDestructionTimer.running && dragTimer.GetTime() > 0.5f) ||
+			(blockDestructionTimer.running && selectedBlockIdx != blockDestructionTimer.blockIdx)){
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
-
 				if (ch) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
 					if (ch->grid[bidx.x][bidx.y][bidx.z]) {
@@ -178,17 +177,32 @@ int main() {
 						blockDestructionTimer.Start();
 					}
 				}
-
 			}
 		}
 		if (GUIManager::GetInstance().mouseEvent == 1) {
 			std::cout << selectedBlockIdx.x << "," << selectedBlockIdx.y << "," << selectedBlockIdx.z << '\n';
 			std::cout << selectedFace << std::endl;
+			dragTimer.Start();
+		} else if(GUIManager::GetInstance().mouseEvent == 2){
+			dragTimer.Stop();
+			glm::vec2 drag = GUIManager::GetInstance().mouseDrag;
+			if(!blockDestructionTimer.running && selectedBlockExists && (drag.x*drag.x + drag.y*drag.y) < 16.0f){
+				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
+				if (ch != nullptr) {
+					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
+					int di[] {0, 1, 0, -1, 0, 0}, dj[] {0, 0, 0, 0, 1, -1}, dk[]{1, 0, -1, 0, 0, 0};
+					if(selectedFace != -1){
+						bidx += glm::ivec3{di[selectedFace], dj[selectedFace], dk[selectedFace]};
+						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_GRASS);
+					}
+				}
+			}
+			blockDestructionTimer.Stop();
 		}
 
 		//--------- RENDER
 
-		glClearColor(0.50f, 0.53f, 0.97f, 1.0f);
+		glClearColor(0.20f, 0.33f, 0.47f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -212,7 +226,7 @@ int main() {
 		shader.setMat4f("model", glm::value_ptr(model));
 		shader.setMat4f("view", glm::value_ptr(view));
 		shader.setMat4f("proj", glm::value_ptr(proj));
-
+		shader.setFloat("daylight_value", 0.5f);
 		// 1. Opaque pass
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->solidRenderObj.isBuilt || !chunk->solidRenderObj.isRender) continue;
@@ -225,6 +239,8 @@ int main() {
 		waterShader.setMat4f("model", glm::value_ptr(model));
 		waterShader.setMat4f("view", glm::value_ptr(view));
 		waterShader.setMat4f("proj", glm::value_ptr(proj));
+		waterShader.setFloat("daylight_value", 0.5f);
+
 		Chunk::ivec3 curridx = Chunk::WorldToChunkIndex(Camera::MainCamera.position);
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->waterRenderObj.isBuilt || !chunk->waterRenderObj.isRender) continue;
@@ -247,6 +263,8 @@ int main() {
 		cutoutShader.setMat4f("model", glm::value_ptr(model));
 		cutoutShader.setMat4f("view", glm::value_ptr(view));
 		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
+		cutoutShader.setFloat("daylight_value", 0.5f);
+
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
 			chunk->cutoutRenderObj.vao.Bind();
@@ -383,7 +401,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 			selectedBlockIdx = idx;
 			selectedFace = face;
 			selectedBlockExists = true;
-			//selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
+			// selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
 
 			break;
 		}
@@ -514,6 +532,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 		Camera::MainCamera.ProcessMouseMovement(dx, dy);
 	}
 	GUIManager::GetInstance().mouseXY = { mouseX, GUI::SCREEN_HEIGHT-mouseY };
+	GUIManager::GetInstance().mouseDelta = {mouseX - lastX, mouseY - lastY};
 	lastX = xpos;
 	lastY = ypos;
 }
@@ -522,26 +541,26 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	static double mouseLastX, mouseLastY;
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
 		if (!mouseHeld) { //pressed
-			cout << "0\n";
 			mouseHeld = true;
 			glfwGetCursorPos(window, &mouseLastX, &mouseLastY);
 
 			if (selectedBlockExists) {
 				blockDestructionTimer.blockIdx = selectedBlockIdx;
-				blockDestructionTimer.Start();
+				// blockDestructionTimer.Start();
 			}
 			GUIManager::GetInstance().mouseEvent = 1;
 		}
 		else { //released
 			GUIManager::GetInstance().mouseEvent = 2;
+			double mouseRelX, mouseRelY;
+			glfwGetCursorPos(window, &mouseRelX, &mouseRelY);
+			GUIManager::GetInstance().mouseDrag = {mouseRelX - mouseLastX, mouseRelY - mouseLastY};
 			mouseHeld = false;
-			blockDestructionTimer.Stop();
 		}
 	}
 	else { //held
 		GUIManager::GetInstance().mouseEvent = 0;
 	}
-	
 }
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------

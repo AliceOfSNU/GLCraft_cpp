@@ -24,7 +24,7 @@ public:
 	RenderObject(RenderMode _mode);
 
 	void Build();
-	void PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 offset, unsigned int face);
+	void PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 offset, unsigned int face, int8_t light_level);
 	void CreateBuffers();
 	void DeleteBuffers();
 
@@ -44,10 +44,10 @@ public:
 	// they are created in renderobject's constructor
 	// and destroyed in renderobject's destructor
 	VAO vao;
-	VBO vbo_pos, vbo_uv;
+	VBO vbo_pos, vbo_uv, vbo_light;
 	EBO ebo;
 
-	std::vector<GLfloat> vtxdata, uvdata;
+	std::vector<GLfloat> vtxdata, uvdata, lightdata;
 	std::vector<GLuint> idxdata;
 
     // how much data transferred to GLObjects,

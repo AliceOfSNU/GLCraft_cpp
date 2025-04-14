@@ -21,7 +21,7 @@ public:
 	void Render(float percentage, float sx, float sy);
 
 private:
-	Shader shader = Shader("circleui.vert", "circleui.frag");
+	Shader shader = Shader("resources/circleui.vert", "resources/circleui.frag");
 	VAO vao;
 	VBO vbo;
 	std::vector<float> vertices = std::vector<float>{
@@ -56,6 +56,8 @@ public:
 	}
 	std::map<std::string, std::shared_ptr<GUI>> windows;
 	glm::vec2 mouseXY;
+	glm::vec2 mouseDelta;
+	glm::vec2 mouseDrag;
 	int mouseEvent;
 private:
 	GUIManager()=default;

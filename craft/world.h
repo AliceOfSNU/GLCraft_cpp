@@ -63,7 +63,8 @@ public:
 	using BlockType = BlockDB::BlockType;
 	static constexpr int SZ = 32, HEIGHT = 32; //a chunk is SZ*HEIGHT*SZ large. the y coordinate is up.
 	BlockType grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
-	
+	int8_t light[SZ][HEIGHT][SZ];
+
 	int blockHeight[SZ][SZ]; //the number of blocks in each column
 	BiomeType blockBiome[SZ][SZ]; //the biome type for each column
 	
@@ -94,6 +95,9 @@ public:
 	void Build();
 	void ReBuild();
 
+	//lighting
+	void BuildLights();
+	
 	//manipulation
 	void DestroyBlockAt(const ivec3& bidx);
 	void PlaceBlockAtCompileTime(const ivec3& bidx, const BlockDB::BlockType blkTy);
