@@ -193,7 +193,7 @@ int main() {
 					int di[] {0, 1, 0, -1, 0, 0}, dj[] {0, 0, 0, 0, 1, -1}, dk[]{1, 0, -1, 0, 0, 0};
 					if(selectedFace != -1){
 						bidx += glm::ivec3{di[selectedFace], dj[selectedFace], dk[selectedFace]};
-						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_GRASS);
+						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_WOODEN_STAIR_P0);
 					}
 				}
 			}

@@ -91,6 +91,9 @@ void Chunk::Build() {
 					if (k == SZ - 1 && (!kp_chk || !blockDB.isSolidCube(kp_chk->grid[i][j][0])))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT);
 					else if( k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))	solidRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
 					break;
+				case BlockDB::RenderType::SHAPE_SOLID:
+					Block::PlaceModelData(blkTy, pos, solidRenderObj.vtxdata, solidRenderObj.uvdata, solidRenderObj.idxdata, solidRenderObj.vtxcnt, solidRenderObj.idxcnt);
+					break;
 				case BlockDB::RenderType::WATER_RENDER:
 					// place left and right
 					if (i == 0 && (!in_chk || !blockDB.isSolidCube(in_chk->grid[SZ - 1][j][k])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT);

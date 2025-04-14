@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
+#include <algorithm>
 #include "GLObjects.h"
-
 #define INOUT
 #define OUT
 
@@ -20,20 +20,23 @@ struct BlockMeshData {
 class BlockDB {
 public:
 	enum BlockType {
-		BLOCK_AIR, BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_POPPY, BLOCK_DANDELION, BLOCK_CYAN_FLOWER, BLOCK_COUNT
+		BLOCK_AIR, BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_POPPY, BLOCK_DANDELION, BLOCK_CYAN_FLOWER, 
+		BLOCK_WOODEN_STAIR_P0, BLOCK_WOODEN_STAIR_P90, BLOCK_WOODEN_STAIR_P180, BLOCK_WOODEN_STAIR_P270, 
+		BLOCK_COBBLESTONE_STAIR_P0, BLOCK_COBBLESTONE_STAIR_P90, BLOCK_COBBLESTONE_STAIR_P180, BLOCK_COBBLESTONE_STAIR_P270,
+		BLOCK_COUNT
 	};
 
 	//this should be in opposite order
 	enum BlockTextures {
-		DANDELION, POPPY, CYAN_FLOWER, FOILAGE, ELM_SIDE, ELM_TOP, BIRCH_SIDE, BIRCH_TOP, WATER, GRANITE, SNOW, SNOW_SIDE, SAND, GRASS_TOP, GRASS_SIDE, DIRT, NONE
+		COBBLESTONE, WOOD, DANDELION, POPPY, CYAN_FLOWER, FOILAGE, ELM_SIDE, ELM_TOP, BIRCH_SIDE, BIRCH_TOP, WATER, GRANITE, SNOW, SNOW_SIDE, SAND, GRASS_TOP, GRASS_SIDE, DIRT, NONE
 	};
 
 	enum RenderType {
-		SOLID, TRANSPARENT, CUTOUT, WATER_RENDER, INVISIBLE
+		SOLID, TRANSPARENT, CUTOUT, WATER_RENDER, SHAPE_SOLID, INVISIBLE
 	};
 
 	enum MeshType {
-		CUBE, FLOWER
+		CUBE, FLOWER, SHAPED
 	};
 
 	struct BlockDataRow {
@@ -53,6 +56,7 @@ public:
 	}
 
 	std::vector<BlockDataRow> tbl;
+
 	bool isSolidCube(BlockType ty);
 	BlockMeshData& GetMeshData(MeshType ty);
 
@@ -97,4 +101,9 @@ public:
 		vf& vtxit, vf& uvit, vi& idxit, INOUT GLuint& vtxn, int face
 	);
 
+	static GLuint PlaceModelData(BlockDB::BlockType ty, glm::f32vec3 offset, vf& vtxit, vf& uvit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
+	
+	// block-specific implementations
+	static GLuint PlaceStairModelData(BlockDB::BlockType blkTy, glm::f32vec3 offset, vf& vtxit, vf& uvit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
 };
+
