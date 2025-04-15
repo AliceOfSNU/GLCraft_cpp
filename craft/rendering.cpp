@@ -101,6 +101,84 @@ void RenderObject::DeleteBuffers() {
 	hasBuffers = false;
 }
 
+void ModelRenderObject::LoadModel(std::shared_ptr<ModelWrapper> mdl, glm::vec3 offset){
+	modelref = mdl;
+	meshRenderObjs.resize(modelref->model.meshes.size());
+	for(int i = 0; i < meshRenderObjs.size(); ++i){
+		Mesh& mesh = modelref->model.meshes[i];
+		for(const glm::vec3& pos:mesh.positions){
+			meshRenderObjs[i].vtxdata.push_back(pos.x + offset.x);
+			meshRenderObjs[i].vtxdata.push_back(pos.y + offset.y);
+			meshRenderObjs[i].vtxdata.push_back(pos.z + offset.z);
+		}
+
+		for(const glm::vec2& uv:mesh.texUVs){
+			meshRenderObjs[i].uvdata.push_back(uv.x);
+			meshRenderObjs[i].uvdata.push_back(uv.y);
+		}
+
+		std::copy(mesh.indices.begin(), mesh.indices.end(), std::back_inserter(meshRenderObjs[i].idxdata));
+		meshRenderObjs[i].vtxcnt = mesh.positions.size();
+		meshRenderObjs[i].idxcnt = mesh.indices.size();
+
+	}
+}
+
+void ModelRenderObject::Build(){
+	if (isBuilt) return;
+	for(MeshRenderObject& obj: meshRenderObjs){
+		obj.Build();
+	}
+	isBuilt = true;
+}
+
+void ModelRenderObject::DeleteBuffers(){
+	for(MeshRenderObject& obj: meshRenderObjs){
+		obj.DeleteBuffers();
+	}
+}
+void ModelRenderObject::Render(){
+	for(int i = 0; i < meshRenderObjs.size(); ++i){
+		meshRenderObjs[i].vao.Bind();
+		for(Texture& tx : modelref->model.meshes[i].textures) tx.Bind();
+		glDrawElements(GL_TRIANGLES, meshRenderObjs[i].idxcnt, GL_UNSIGNED_INT, 0);
+	}
+}
+
+void MeshRenderObject::Build(){
+	if (isBuilt) return;
+	CreateBuffers();
+
+	vao.Bind();
+	vbo_pos.BufferData(vtxdata.data(), sizeof(vtxdata[0]) * vtxdata.size());
+	vao.LinkAttrib(vbo_pos, 0, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vbo_uv.BufferData(uvdata.data(), sizeof(uvdata[0]) * uvdata.size());
+	vao.LinkAttrib(vbo_uv, 1, 2, GL_FLOAT, 2 * sizeof(float), (void*)0);
+	ebo.BufferData(idxdata.data(), sizeof(idxdata[0]) * idxdata.size());
+	vao.Unbind();
+	ebo.Unbind();
+    
+	vtxdata.clear();
+	uvdata.clear();
+	idxdata.clear();
+	isBuilt = true;
+}
+
+void MeshRenderObject::DeleteBuffers() {
+	if (hasBuffers) {
+		vao.Delete();
+		vbo_pos.Delete();
+		vbo_uv.Delete();
+		ebo.Delete();
+	}
+
+	vtxcnt = 0;
+	idxcnt = 0;
+
+	isBuilt = false;
+	hasBuffers = false;
+}
+
 // Shader
 
 Shader::Shader(const char* vertexPath, const char* fragmentPath) {

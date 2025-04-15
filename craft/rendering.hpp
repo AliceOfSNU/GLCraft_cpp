@@ -11,7 +11,7 @@
 #include "GLObjects.h"
 #include "camera.h" 
 #include "blocks.hpp"
-
+#include "model_utils.h"
 class RenderObject {
 public:
 
@@ -54,13 +54,30 @@ public:
     // not vtxdata.size() or idxdata.size()
     // interal storage can actually be empty
 	size_t vtxcnt = 0, idxcnt = 0;
-
-private:
-
-	bool hasBuffers; 
+    bool hasBuffers; 
 
 };
 
+
+class MeshRenderObject: public RenderObject{
+public:
+    void Build();
+    void DeleteBuffers();
+};
+    
+    
+class ModelRenderObject: public RenderObject{
+public:
+    void LoadModel(std::shared_ptr<ModelWrapper> model, glm::vec3 offset);
+    void Render();
+    void DeleteBuffers();
+    void Build();
+private:
+    std::shared_ptr<ModelWrapper> modelref;
+    std::vector<MeshRenderObject> meshRenderObjs;
+};
+
+    
 class Shader
 {
 public:

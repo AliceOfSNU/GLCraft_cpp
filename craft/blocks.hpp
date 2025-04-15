@@ -1,7 +1,9 @@
 #pragma once
 #include <vector>
 #include <algorithm>
+#include <map>
 #include "GLObjects.h"
+#include "model_utils.h"
 #define INOUT
 #define OUT
 
@@ -23,7 +25,7 @@ public:
 		BLOCK_AIR, BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_POPPY, BLOCK_DANDELION, BLOCK_CYAN_FLOWER, 
 		BLOCK_WOODEN_STAIR_P0, BLOCK_WOODEN_STAIR_P90, BLOCK_WOODEN_STAIR_P180, BLOCK_WOODEN_STAIR_P270, 
 		BLOCK_COBBLESTONE_STAIR_P0, BLOCK_COBBLESTONE_STAIR_P90, BLOCK_COBBLESTONE_STAIR_P180, BLOCK_COBBLESTONE_STAIR_P270,
-		BLOCK_COUNT
+		BLOCK_TORCH, BLOCK_COUNT
 	};
 
 	//this should be in opposite order
@@ -32,7 +34,7 @@ public:
 	};
 
 	enum RenderType {
-		SOLID, TRANSPARENT, CUTOUT, WATER_RENDER, SHAPE_SOLID, INVISIBLE
+		SOLID, TRANSPARENT, CUTOUT, WATER_RENDER, SHAPE_SOLID, PLACEABLES, INVISIBLE
 	};
 
 	enum MeshType {
@@ -56,6 +58,7 @@ public:
 	}
 
 	std::vector<BlockDataRow> tbl;
+	std::map<BlockType, std::shared_ptr<ModelWrapper>> modelzoo;
 
 	bool isSolidCube(BlockType ty);
 	bool isTransparentBlock(BlockType ty);
@@ -64,6 +67,7 @@ public:
 private:
 	BlockDB();
 	BlockDB(BlockDB const& other) = delete;
+	void RegisterModels();
 	BlockDB& operator=(BlockDB const& other) = delete;
 };
 

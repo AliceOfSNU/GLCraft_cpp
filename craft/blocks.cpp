@@ -102,7 +102,23 @@ BlockDB::BlockDB() {
 	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P180] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P180, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
 	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P270] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P270, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
 	
+	// TORCH
+	tbl[BlockType::BLOCK_TORCH] = 	BlockDataRow{ BlockType::BLOCK_TORCH, { BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::PLACEABLES, MeshType::SHAPED, true };
 
+	RegisterModels();
+}
+
+void BlockDB::RegisterModels(){
+	// TORCH
+	modelzoo[BlockType::BLOCK_TORCH] = std::make_shared<ModelWrapper>("resources/models/minecraft_torch/scene.gltf");
+	
+	// TORCH - placed on the ground
+	auto modelmat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+	modelmat = glm::scale(modelmat, glm::vec3(1.0f/9.0f, 1.0f/9.0f, 1.0f/9.0f));
+	modelzoo[BlockType::BLOCK_TORCH]->modelMatrix = modelmat;
+	modelzoo[BlockType::BLOCK_TORCH]->ApplyTransformsToMesh();
+
+	// TODO: TORCH - placed on the wall
 }
 
 bool BlockDB::isSolidCube(BlockType blkTy) {

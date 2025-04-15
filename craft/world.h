@@ -114,7 +114,7 @@ public:
 	RenderObject solidRenderObj;
 	RenderObject cutoutRenderObj;
 	RenderObject waterRenderObj;
-
+	std::map<std::tuple<int, int, int>, ModelRenderObject> modelRenderObjs;
 };
 
 

@@ -117,6 +117,7 @@ int main() {
 	Shader weatherShader = Shader("resources/billboard.vs", "resources/cutout_basic.fs");
 	Shader solidColorShader = Shader("resources/solidcolor.vs", "resources/solidcolor.fs");
 	Shader waterShader = Shader("resources/wave.vs", "resources/wave.fs");
+	Shader texShader = Shader("resources/texture.vs", "resources/texture.fs");
 	solidUIShader = std::make_shared<Shader>("resources/solidGUI.vs", "resources/solidGUI.fs");
 	
 	//get the uniform id for texture sampler
@@ -193,7 +194,7 @@ int main() {
 					int di[] {0, 1, 0, -1, 0, 0}, dj[] {0, 0, 0, 0, 1, -1}, dk[]{1, 0, -1, 0, 0, 0};
 					if(selectedFace != -1){
 						bidx += glm::ivec3{di[selectedFace], dj[selectedFace], dk[selectedFace]};
-						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_GRASS);
+						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_TORCH);
 					}
 				}
 			}
@@ -271,6 +272,17 @@ int main() {
 			glDrawElements(GL_TRIANGLES, chunk->cutoutRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
 		
+		// 4. Model pass
+		
+		texShader.use();
+		texShader.setMat4f("model", glm::value_ptr(model));
+		texShader.setMat4f("view", glm::value_ptr(view));
+		texShader.setMat4f("proj", glm::value_ptr(proj));
+		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
+			for(auto& [bidx, renderobj]: chunk->modelRenderObjs){
+				renderobj.Render();
+			}
+		}
 		//-------- Weather particles
 		weatherShader.use();
 		weatherShader.setMat4f("modelview", glm::value_ptr(view));

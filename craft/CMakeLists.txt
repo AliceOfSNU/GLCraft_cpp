@@ -28,10 +28,12 @@ plants.cpp
 collision.cpp
 debug.cpp
 weather.cpp
+model_utils.cpp
 )
 add_executable(GLcraft ${TARGET_SRC} main.cpp )
 add_subdirectory(generation)
-target_include_directories(GLcraft PUBLIC ${CMAKE_SOURCE_DIR}/generation ${CMAKE_SOURCE_DIR}/Libraries/include ${GLFW3_INCLUDE_DIR})
-target_link_directories(GLcraft PRIVATE generation)
-target_link_libraries(GLcraft PRIVATE ${GLFW3_LIBRARY} OpenGL::GL Generation)
+add_subdirectory(miniGLTF)
+target_include_directories(GLcraft PUBLIC ${CMAKE_SOURCE_DIR}/miniGLTF ${CMAKE_SOURCE_DIR}/generation ${CMAKE_SOURCE_DIR}/Libraries/include ${GLFW3_INCLUDE_DIR})
+target_link_directories(GLcraft PRIVATE generation miniGLTF)
+target_link_libraries(GLcraft PRIVATE ${GLFW3_LIBRARY} OpenGL::GL Generation MiniGLTF)
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)

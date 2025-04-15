@@ -188,6 +188,15 @@ void Chunk::ReBuild() {
 //}
 
 void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
+
+	// for placables, just delete the associated render object.
+	if(grid[bidx.x][bidx.y][bidx.z] == BlockType::BLOCK_TORCH){
+		modelRenderObjs[{bidx.x, bidx.y, bidx.z}].DeleteBuffers();
+		modelRenderObjs.erase({bidx.x, bidx.y, bidx.z});
+		grid[bidx.x][bidx.y][bidx.z] = BlockType::BLOCK_AIR;
+		return;
+	}
+	
 	// deleting a block makes it air!
 	grid[bidx.x][bidx.y][bidx.z] = BlockType::BLOCK_AIR;
 	requiresRebuild = true;//requires rebuild.
@@ -276,7 +285,19 @@ void Chunk::PlaceBlockAtCompileTime(const ivec3& blockIdx, const BlockDB::BlockT
 		return ck->PlaceBlockAtCompileTime(bidx, blkTy);
 	}
 	grid[bidx.x][bidx.y][bidx.z] = blkTy;
-	requiresRebuild = true;
+	
+	if(blkTy == BlockType::BLOCK_TORCH){
+		// if it's a placable, just place a new renderobj with the block's model
+		modelRenderObjs[{bidx.x, bidx.y, bidx.z}] = ModelRenderObject();
+		glm::vec3 pos{ basepos.x + bidx.x, basepos.y + bidx.y, basepos.z + bidx.z };
+		auto torchmodel = BlockDB::GetInstance().modelzoo[blkTy];
+		modelRenderObjs[{bidx.x, bidx.y, bidx.z}].LoadModel(torchmodel, pos);
+		modelRenderObjs[{bidx.x, bidx.y, bidx.z}].Build();
+	}
+	else{
+		// otherwise we will build the chunk
+		requiresRebuild = true;
+	}
 	return;
 }
 
