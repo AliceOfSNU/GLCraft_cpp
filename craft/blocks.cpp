@@ -79,6 +79,8 @@ BlockDB::BlockDB() {
 	tbl[BlockType::BLOCK_GRANITE] =	  BlockDataRow{ BlockType::BLOCK_GRANITE,	 { BlockTextures::GRANITE,		BlockTextures::GRANITE,		 BlockTextures::GRANITE,	BlockTextures::GRANITE,		BlockTextures::GRANITE,		BlockTextures::GRANITE},   RenderType::SOLID, MeshType::CUBE, 	true };
 	tbl[BlockType::BLOCK_SNOW_SOIL] = BlockDataRow{ BlockType::BLOCK_SNOW_SOIL,	 { BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	 BlockTextures::SNOW_SIDE,	BlockTextures::SNOW_SIDE,	BlockTextures::SNOW,		BlockTextures::DIRT},	   RenderType::SOLID, MeshType::CUBE, 	true };
 	tbl[BlockType::BLOCK_WATER] =	  BlockDataRow{ BlockType::BLOCK_WATER,		 { BlockTextures::WATER,		BlockTextures::WATER,		 BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER,		BlockTextures::WATER},	   RenderType::WATER_RENDER, MeshType::CUBE, true};
+	tbl[BlockType::BLOCK_COBBLESTONE]=BlockDataRow{ BlockType::BLOCK_COBBLESTONE,{ BlockTextures::COBBLESTONE,	BlockTextures::COBBLESTONE,	 BlockTextures::COBBLESTONE,BlockTextures::COBBLESTONE,	BlockTextures::COBBLESTONE,	BlockTextures::COBBLESTONE},RenderType::SOLID, MeshType::CUBE, true};
+	tbl[BlockType::BLOCK_WOOD] =	  BlockDataRow{ BlockType::BLOCK_WOOD,		 { BlockTextures::WOOD,			BlockTextures::WOOD,		 BlockTextures::WOOD,		BlockTextures::WOOD,		BlockTextures::WOOD,		BlockTextures::WOOD},	   RenderType::SOLID, MeshType::CUBE, true};
 	
 	// TREES
 	tbl[BlockType::BLOCK_BIRCH_LOG] = BlockDataRow{ BlockType::BLOCK_BIRCH_LOG,	 { BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	 BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_SIDE,	BlockTextures::BIRCH_TOP,	BlockTextures::BIRCH_TOP}, RenderType::SOLID,  MeshType::CUBE, true };
@@ -248,6 +250,10 @@ GLuint Block::PlaceModelData(
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P90:
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P180:
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P270:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P0:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P90:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P180:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P270:
 			return PlaceStairModelData(blkTy, offset, vtxit, uvit, idxit, vtxcnt, idxcnt);
 		default:
 			return 0;
@@ -328,6 +334,7 @@ GLuint Block::PlaceStairModelData(
 
 	switch(blkTy){
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P0:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P0:
 			for(int i = 0; i < StairMesh_P0.size(); ++i){
 				vtxit.push_back(StairMesh_P0[i].x+offset.x);
 				vtxit.push_back(StairMesh_P0[i].y+offset.y);
@@ -336,6 +343,7 @@ GLuint Block::PlaceStairModelData(
 			break;
 		
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P90:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P90:
 			for(int i = 0; i < StairMesh_P90.size(); ++i){
 				vtxit.push_back(StairMesh_P90[i].x+offset.x);
 				vtxit.push_back(StairMesh_P90[i].y+offset.y);
@@ -344,6 +352,7 @@ GLuint Block::PlaceStairModelData(
 			break;
 
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P180:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P180:
 			for(int i = 0; i < StairMesh_P180.size(); ++i){
 				vtxit.push_back(StairMesh_P180[i].x+offset.x);
 				vtxit.push_back(StairMesh_P180[i].y+offset.y);
@@ -352,6 +361,7 @@ GLuint Block::PlaceStairModelData(
 			break;
 
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P270:
+		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P270:
 			for(int i = 0; i < StairMesh_P270.size(); ++i){
 				vtxit.push_back(StairMesh_P270[i].x+offset.x);
 				vtxit.push_back(StairMesh_P270[i].y+offset.y);

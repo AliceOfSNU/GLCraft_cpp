@@ -118,7 +118,6 @@ int main() {
 	Shader solidColorShader = Shader("resources/solidcolor.vs", "resources/solidcolor.fs");
 	Shader waterShader = Shader("resources/wave.vs", "resources/wave.fs");
 	Shader texShader = Shader("resources/texture.vs", "resources/texture.fs");
-	solidUIShader = std::make_shared<Shader>("resources/solidGUI.vs", "resources/solidGUI.fs");
 	
 	//get the uniform id for texture sampler
 	shader.use();
@@ -194,7 +193,7 @@ int main() {
 					int di[] {0, 1, 0, -1, 0, 0}, dj[] {0, 0, 0, 0, 1, -1}, dk[]{1, 0, -1, 0, 0, 0};
 					if(selectedFace != -1){
 						bidx += glm::ivec3{di[selectedFace], dj[selectedFace], dk[selectedFace]};
-						ch->PlaceBlockAtCompileTime(bidx, BlockDB::BlockType::BLOCK_TORCH);
+						ch->PlaceBlockAtCompileTime(bidx, Inventory::selectedBlkTy);
 					}
 				}
 			}
@@ -486,46 +485,6 @@ void processInput(GLFWwindow* window)
 		}
 		else {
 			std::shared_ptr<Inventory> main_panel = make_shared<Inventory>();
-			main_panel->renderObj = make_unique<SolidGUIRenderObject>();
-			main_panel->renderObj->shader = solidUIShader;
-			main_panel->centerX = 400.0f;
-			main_panel->centerY = 400.0f;
-			main_panel->width = 400.f;
-			main_panel->height = 200.f;
-			for (int i = 0; i < 3; ++i) {
-				for (int j = 0; j < 5; ++j) {
-					std::shared_ptr<Button> item = make_shared<Button>();
-					item->id = "inventory_" + std::to_string(5 * i + j);
-					item->renderObj = make_unique<SolidGUIRenderObject>(glm::vec3(0.1f, 0.1f, 0.1f));
-					item->renderObj->shader = solidUIShader;
-					item->centerX = 400.f - (60.f * 2) + j * 60.f;
-					item->width = 50.f;
-					item->centerY = 400.f - (60.f * 1) + i * 60.f;
-					item->height = 50.f;
-					auto onClickListener = [](Button& btn) {
-						auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn.renderObj.get());
-						auto start = btn.id.find("inventory_", 0) + 10;
-						auto idnum = stoi(btn.id.substr(start, btn.id.size()-start));
-						auto inven = dynamic_cast<Inventory*>(GUIManager::GetInstance().windows["inventory"].get());
-						inven->Select(idnum);
-					};
-					auto onEnterListener = [](Button& btn) {
-						auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn.renderObj.get());
-						solidRend->fillcolor = { 0.2f, 0.2f, 0.2f };
-					};
-					auto onExitListener = [](Button& btn) {
-						auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn.renderObj.get());
-						auto start = btn.id.find("inventory_", 0) + 10;
-						auto idnum = stoi(btn.id.substr(start, btn.id.size() - start));
-						auto inven = dynamic_cast<Inventory*>(GUIManager::GetInstance().windows["inventory"].get());
-						if(idnum != inven->selected) solidRend->fillcolor = { 0.1f, 0.1f, 0.1f };
-					};
-					item->OnClick = onClickListener;
-					item->OnMouseEnter = onEnterListener;
-					item->OnMouseExit = onExitListener;
-					main_panel->children.push_back(std::move(item));
-				}
-			}
 			main_panel->Build();
 			GUIManager::GetInstance().windows["inventory"] = main_panel;
 		}

@@ -55,12 +55,15 @@ public:
 		return instance;
 	}
 	std::map<std::string, std::shared_ptr<GUI>> windows;
+	std::shared_ptr<Shader> solidUIShader;
+	std::shared_ptr<Shader> atlasUIShader;
+
 	glm::vec2 mouseXY;
 	glm::vec2 mouseDelta;
 	glm::vec2 mouseDrag;
 	int mouseEvent;
 private:
-	GUIManager()=default;
+	GUIManager();
 	GUIManager(GUIManager const& other) = delete;
 	GUIManager& operator=(GUIManager const& other) = delete;
 };
@@ -81,16 +84,22 @@ public:
 
 class SolidGUIRenderObject: public GUIRenderObject {
 public:
-	SolidGUIRenderObject() = default;
+	SolidGUIRenderObject();
 	SolidGUIRenderObject(glm::vec3 fillcolor);
 	virtual void Render() override;
 	glm::vec3 fillcolor{ 0.3f, 0.3f, 0.3f };
 };
 
-//class ImageGUIRenderObject : public GUIRenderObject {
-//public:
-//	ImageGUIRenderObject()
-//};
+class AtlasGUIRenderObject: public GUIRenderObject {
+public:
+	AtlasGUIRenderObject(std::shared_ptr<TextureArray2D> tex);
+	virtual void Render() override;
+	virtual void Build() override;
+	virtual void Destroy() override;
+	std::shared_ptr<TextureArray2D> arr_tex;
+	VBO vbo_uv;
+	std::vector<float> uvs;
+};
 
 class Panel: public GUI{
 public:
@@ -104,29 +113,50 @@ public:
 	virtual void Build() override;
 	virtual void Destroy() override;
 
-	std::unique_ptr<GUIRenderObject> renderObj;
+	std::shared_ptr<GUIRenderObject> renderObj;
 
 protected:
-	bool isBuilt;
+	bool isBuilt = false;
 };
 
 class Button : public Panel{
 public:
 	void Update() override;
-	std::function<void(Button&)> OnClick;
-	std::function<void(Button&)> OnMouseEnter;
-	std::function<void(Button&)> OnMouseExit;
+	virtual void OnClick() {};
+	virtual void OnMouseEnter() {};
+	virtual void OnMouseExit() {};
 	std::string id;
 protected:
 	bool isHovering = false;
 };
 
+
 //
 
 class Inventory : public Panel {
 public:
-	int selected = 0;
+	using BlockType = BlockDB::BlockType;
+	static BlockDB::BlockType selectedBlkTy; //persists which block type is selected, when ui is closed
+	static int selected;
+	static const std::vector<BlockType> btnToBlkTy;
+	Inventory();
 	void Select(int num);
 };
 
+class InventoryButton: public Button{
+public:
+	int itemidx;
+	InventoryButton(int idx, float cx, float cy, float w, float h);
+	virtual void OnClick() override;
+	virtual void OnMouseEnter() override;
+	virtual void OnMouseExit() override;
+
+};
+
+class InvenBtnImg: public Panel {
+public:
+	int imgidx = 0;
+	InvenBtnImg(int imgidx);
+	virtual void Build() override;
+};
 #endif
