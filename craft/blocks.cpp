@@ -243,8 +243,8 @@ GLuint Block::PlaceFaceData(
 }
 
 GLuint Block::PlaceModelData(
-	BlockDB::BlockType blkTy, glm::f32vec3 offset,
-	vf& vtxit, vf& uvit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt){
+	BlockDB::BlockType blkTy, glm::f32vec3 offset, int8_t light,
+	vf& vtxit, vf& uvit, vf& lightit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt){
 	switch (blkTy){
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P0:
 		case BlockDB::BlockType::BLOCK_WOODEN_STAIR_P90:
@@ -254,15 +254,15 @@ GLuint Block::PlaceModelData(
 		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P90:
 		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P180:
 		case BlockDB::BlockType::BLOCK_COBBLESTONE_STAIR_P270:
-			return PlaceStairModelData(blkTy, offset, vtxit, uvit, idxit, vtxcnt, idxcnt);
+			return PlaceStairModelData(blkTy, offset, light, vtxit, uvit, lightit, idxit, vtxcnt, idxcnt);
 		default:
 			return 0;
 	}
 }
 
 GLuint Block::PlaceStairModelData(
-	BlockDB::BlockType blkTy, glm::f32vec3 offset,
-	vf& vtxit, vf& uvit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt)
+	BlockDB::BlockType blkTy, glm::f32vec3 offset, int8_t light,
+	vf& vtxit, vf& uvit, vf& lightit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt)
 {
 	//1. place vertex data
 	// static variables in the same translation unit is initialized in declaration order.
@@ -414,7 +414,11 @@ GLuint Block::PlaceStairModelData(
 		uvit.push_back((float)row.faceTextures[0]);
 	}
 
-	//3. place index data
+	//3. place lighting data
+	for(int v = 0; v < 32; ++v){
+		lightit.push_back((float)light);
+	}
+	//4. place index data
 	const static std::vector<GLuint> order{
 		0, 3, 1, 1, 2, 3, 0, 3, 5, 3, 4, 5,
 		6, 9, 7, 7, 8, 9, 6, 9, 11, 9, 10, 11,

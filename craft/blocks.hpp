@@ -106,9 +106,9 @@ public:
 		vf& vtxit, vf& uvit, vi& idxit, INOUT GLuint& vtxn, int face
 	);
 
-	static GLuint PlaceModelData(BlockDB::BlockType ty, glm::f32vec3 offset, vf& vtxit, vf& uvit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
+	static GLuint PlaceModelData(BlockDB::BlockType ty, glm::f32vec3 offset, int8_t light, vf& vtxit, vf& uvit, vf& lightit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
 	
 	// block-specific implementations
-	static GLuint PlaceStairModelData(BlockDB::BlockType blkTy, glm::f32vec3 offset, vf& vtxit, vf& uvit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
+	static GLuint PlaceStairModelData(BlockDB::BlockType blkTy, glm::f32vec3 offset, int8_t light, vf& vtxit, vf& uvit, vf& lightit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
 };
 

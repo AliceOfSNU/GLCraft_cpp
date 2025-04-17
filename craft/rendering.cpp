@@ -10,7 +10,7 @@ RenderObject::RenderObject(RenderMode _mode):mode(_mode), isBuilt(false), hasBuf
 
 
 // appends block's mesh and texture data into internal storage vector
-void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos, unsigned int face, int8_t light_level) {
+void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos, unsigned int face, int8_t light_level, int torch_level) {
 	BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
 	BlockMeshData& mesh = BlockDB::GetInstance().GetMeshData(row.meshType);
 	// place vertex data. 4 vertices of a square * 3 (xyz)
@@ -35,7 +35,7 @@ void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos
 	}
 
 	for(int i = 0; i < 4; ++i) lightdata.push_back((float)light_level);
-
+	for(int i = 0; i < 4; ++i) torchdata.push_back((float)torch_level);
 	// place idx data
 	idxdata.push_back(vtxcnt + 0);
 	idxdata.push_back(vtxcnt + 1);
@@ -60,6 +60,8 @@ void RenderObject::Build() {
 	vao.LinkAttrib(vbo_uv, 1, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
 	vbo_light.BufferData(lightdata.data(), sizeof(lightdata[0]) * lightdata.size());
 	vao.LinkAttrib(vbo_light, 2, 1, GL_FLOAT, sizeof(float), (void*)0);
+	vbo_torch.BufferData(torchdata.data(), sizeof(torchdata[0]) * torchdata.size());
+	vao.LinkAttrib(vbo_torch, 3, 1, GL_FLOAT, sizeof(float), (void*)0);
 	ebo.BufferData(idxdata.data(), sizeof(idxdata[0]) * idxdata.size());
 	vao.Unbind();
 	ebo.Unbind();
@@ -68,6 +70,7 @@ void RenderObject::Build() {
 	vtxdata.clear();
 	uvdata.clear();
 	lightdata.clear();
+	torchdata.clear();
 	idxdata.clear();
 	
 	isBuilt = true;
@@ -80,6 +83,7 @@ void RenderObject::CreateBuffers() {
 	vbo_pos.Create();
 	vbo_uv.Create();
 	vbo_light.Create();
+	vbo_torch.Create();
 	ebo.Create();
 
 	hasBuffers = true;
@@ -91,6 +95,7 @@ void RenderObject::DeleteBuffers() {
 		vbo_pos.Delete();
 		vbo_uv.Delete();
 		vbo_light.Delete();
+		vbo_torch.Delete();
 		ebo.Delete();
 	}
 
