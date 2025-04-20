@@ -105,7 +105,11 @@ BlockDB::BlockDB() {
 	tbl[BlockType::BLOCK_COBBLESTONE_STAIR_P270] = 	BlockDataRow{ BlockType::BLOCK_COBBLESTONE_STAIR_P270, { BlockTextures::COBBLESTONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::SHAPE_SOLID, MeshType::SHAPED, true };
 	
 	// TORCH
-	tbl[BlockType::BLOCK_TORCH] = 	BlockDataRow{ BlockType::BLOCK_TORCH, { BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::PLACEABLES, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_TORCH] 	= 	BlockDataRow{ BlockType::BLOCK_TORCH, { BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::PLACEABLES, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_TORCH_R0]  = 	BlockDataRow{ BlockType::BLOCK_TORCH_R0, { BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::PLACEABLES, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_TORCH_R90]  = 	BlockDataRow{ BlockType::BLOCK_TORCH_R90, { BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::PLACEABLES, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_TORCH_R180]  = BlockDataRow{ BlockType::BLOCK_TORCH_R180, { BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::PLACEABLES, MeshType::SHAPED, true };
+	tbl[BlockType::BLOCK_TORCH_R270]  = BlockDataRow{ BlockType::BLOCK_TORCH_R270, { BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE, BlockTextures::NONE,	BlockTextures::NONE, BlockTextures::NONE},	   RenderType::PLACEABLES, MeshType::SHAPED, true };
 
 	RegisterModels();
 }
@@ -121,6 +125,40 @@ void BlockDB::RegisterModels(){
 	modelzoo[BlockType::BLOCK_TORCH]->ApplyTransformsToMesh();
 
 	// TODO: TORCH - placed on the wall
+	modelzoo[BlockType::BLOCK_TORCH_R0] = std::make_shared<ModelWrapper>("resources/models/minecraft_torch/scene.gltf");
+
+	modelmat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, -0.5f));
+	modelmat = glm::rotate(modelmat, 30.0f/180.f*3.141592f, glm::vec3(1.0f, 0.0f, 0.0f));
+	modelmat = glm::scale(modelmat, glm::vec3(1.0f/9.0f, 1.0f/9.0f, 1.0f/9.0f));
+	modelzoo[BlockType::BLOCK_TORCH_R0]->modelMatrix = modelmat;
+	modelzoo[BlockType::BLOCK_TORCH_R0]->ApplyTransformsToMesh();
+
+	// 90 degrees
+	modelzoo[BlockType::BLOCK_TORCH_R90] = std::make_shared<ModelWrapper>("resources/models/minecraft_torch/scene.gltf");
+
+	modelmat = glm::translate(glm::mat4(1.0f), glm::vec3(-0.5f, -0.5f, 0.0f));
+	modelmat = glm::rotate(modelmat, -30.0f/180.f*3.141592f, glm::vec3(0.0f, 0.0f, 1.0f));
+	modelmat = glm::scale(modelmat, glm::vec3(1.0f/9.0f, 1.0f/9.0f, 1.0f/9.0f));
+	modelzoo[BlockType::BLOCK_TORCH_R90]->modelMatrix = modelmat;
+	modelzoo[BlockType::BLOCK_TORCH_R90]->ApplyTransformsToMesh();
+
+	// 180 degrees
+	modelzoo[BlockType::BLOCK_TORCH_R180] = std::make_shared<ModelWrapper>("resources/models/minecraft_torch/scene.gltf");
+
+	modelmat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.5f));
+	modelmat = glm::rotate(modelmat, -30.0f/180.f*3.141592f, glm::vec3(1.0f, 0.0f, 0.0f));
+	modelmat = glm::scale(modelmat, glm::vec3(1.0f/9.0f, 1.0f/9.0f, 1.0f/9.0f));
+	modelzoo[BlockType::BLOCK_TORCH_R180]->modelMatrix = modelmat;
+	modelzoo[BlockType::BLOCK_TORCH_R180]->ApplyTransformsToMesh();
+
+	// 270 degrees
+	modelzoo[BlockType::BLOCK_TORCH_R270] = std::make_shared<ModelWrapper>("resources/models/minecraft_torch/scene.gltf");
+
+	modelmat = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, -0.5f, 0.0f));
+	modelmat = glm::rotate(modelmat, 30.0f/180.f*3.141592f, glm::vec3(0.0f, 0.0f, 1.0f));
+	modelmat = glm::scale(modelmat, glm::vec3(1.0f/9.0f, 1.0f/9.0f, 1.0f/9.0f));
+	modelzoo[BlockType::BLOCK_TORCH_R270]->modelMatrix = modelmat;
+	modelzoo[BlockType::BLOCK_TORCH_R270]->ApplyTransformsToMesh();
 }
 
 bool BlockDB::isSolidCube(BlockType blkTy) {
@@ -146,6 +184,17 @@ BlockMeshData& BlockDB::GetMeshData(MeshType ty) {
 
 	return BlockMeshData::CubeMesh;
 }
+
+BlockDB::BlockType BlockDB::ReplaceBlockTypeByFace(BlockType ty, int face){
+	// blocks with orientations are changed to the rotated block type depending on face
+	switch(ty){
+		case BlockType::BLOCK_TORCH:
+								// FRONT					RIGHT					    BACK						LEFT					 TOP					 BOTTOM
+			BlockType rotated[] {BlockType::BLOCK_TORCH_R0, BlockType::BLOCK_TORCH_R90, BlockType::BLOCK_TORCH_R180, BlockType::BLOCK_TORCH_R270, BlockType::BLOCK_TORCH, BlockType::BLOCK_TORCH };
+			return rotated[face];
+	}
+}
+
 /*
 * following functions places each face's data onto memory location pointed by dest
 * the data can be which texture to map onto the face, the vertex locations of the face etc..
@@ -435,3 +484,4 @@ GLuint Block::PlaceStairModelData(
 	idxcnt += order.size();
 	return 32;
 }
+
