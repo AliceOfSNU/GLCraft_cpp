@@ -148,6 +148,7 @@ int main() {
 		glm::vec3 begin_pos = last_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
 		glm::vec3 end_pos = curr_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
 
+		// comment below two lines to disable physics
 		glm::vec3 updated_pos = updatePositionWithCollisionCheck(begin_pos, end_pos, { 1.0f, 2.0f, 1.0f });
 		Camera::MainCamera.position = updated_pos + glm::vec3{0.5f, 1.5f, 0.5f};
 		last_pos = Camera::MainCamera.position;
@@ -205,8 +206,7 @@ int main() {
 
 		glClearColor(0.20f, 0.33f, 0.47f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
+		
 		arr_tex.Bind();
 
 		//model view projection
@@ -216,31 +216,33 @@ int main() {
 		//model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
 		view = Camera::MainCamera.GetViewMatrix();
 		proj = Camera::MainCamera.GetPerspectiveMatrix();
-
+		
 		// world update
 		World::GetInstance().UpdateChunks(Camera::MainCamera.position);
 		World::GetInstance().Build();
 		//world.Render();
-
+		
 		//-------- Render
 		shader.use();
 		shader.setMat4f("model", glm::value_ptr(model));
 		shader.setMat4f("view", glm::value_ptr(view));
 		shader.setMat4f("proj", glm::value_ptr(proj));
-		shader.setFloat("daylight_value", 0.5f);
+		shader.setFloat("daylight_value", 0.7f);
 		// 1. Opaque pass
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->solidRenderObj.isBuilt || !chunk->solidRenderObj.isRender) continue;
 			chunk->solidRenderObj.vao.Bind();
 			glDrawElements(GL_TRIANGLES, chunk->solidRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
-
+		
 		// 2. Water pass
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
 		waterShader.use();
 		waterShader.setMat4f("model", glm::value_ptr(model));
 		waterShader.setMat4f("view", glm::value_ptr(view));
 		waterShader.setMat4f("proj", glm::value_ptr(proj));
-		waterShader.setFloat("daylight_value", 0.5f);
+		waterShader.setFloat("daylight_value", 0.7f);
 
 		Chunk::ivec3 curridx = Chunk::WorldToChunkIndex(Camera::MainCamera.position);
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
@@ -258,13 +260,15 @@ int main() {
 			}
 			glDrawElements(GL_TRIANGLES, chunk->waterRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
+		glDisable(GL_BLEND);
+
 
 		// 3. Cutout pass
 		cutoutShader.use();
 		cutoutShader.setMat4f("model", glm::value_ptr(model));
 		cutoutShader.setMat4f("view", glm::value_ptr(view));
 		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
-		cutoutShader.setFloat("daylight_value", 0.5f);
+		cutoutShader.setFloat("daylight_value", 0.7f);
 
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;

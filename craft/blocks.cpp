@@ -163,7 +163,7 @@ void BlockDB::RegisterModels(){
 
 bool BlockDB::isSolidCube(BlockType blkTy) {
 	auto& blockData = tbl[blkTy];
-	if (blockData.meshType == MeshType::CUBE && (blockData.renderType == RenderType::SOLID || blockData.renderType == RenderType::WATER_RENDER)) return true;
+	if (blockData.meshType == MeshType::CUBE && (blockData.renderType == RenderType::SOLID)) return true;
 
 	return false;
 }

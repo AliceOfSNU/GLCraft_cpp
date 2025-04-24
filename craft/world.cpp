@@ -170,19 +170,21 @@ void Chunk::Build() {
 					break;
 				case BlockDB::RenderType::WATER_RENDER:
 					// place left and right
-					if (i == 0 && (!in_chk || !blockDB.isSolidCube(in_chk->grid[SZ - 1][j][k])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, 15, 0);
-					else if (i > 0 && !blockDB.isSolidCube(grid[i - 1][j][k]))						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
-					if (i == SZ - 1 && (!ip_chk || !blockDB.isSolidCube(ip_chk->grid[0][j][k])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, 15, 0);
-					else if (i < SZ - 1 && !blockDB.isSolidCube(grid[i + 1][j][k]))					waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
+					if (i == 0 && (!in_chk || in_chk->grid[SZ - 1][j][k]==BlockType::BLOCK_AIR))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, 15, 0);
+					else if (i > 0 && grid[i - 1][j][k]==BlockType::BLOCK_AIR)						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::LEFT, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::LEFT);
+					if (i == SZ - 1 && (!ip_chk || ip_chk->grid[0][j][k]==BlockType::BLOCK_AIR))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, 15, 0);
+					else if (i < SZ - 1 && grid[i + 1][j][k]==BlockType::BLOCK_AIR)					waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::RIGHT, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::RIGHT);
 					// place top and bottom
-					if (j == 0 || j > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j - 1][k]))						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM,15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
-					if (j == HEIGHT - 1 || j < HEIGHT - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j + 1][k]))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP,15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
+					if(j == 0 && (!jn_chk || jn_chk->grid[i][HEIGHT-1][k]==BlockType::BLOCK_AIR))		waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM,15, 0);
+					else if (j > 0 && grid[i][j - 1][k]==BlockType::BLOCK_AIR)							waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BOTTOM,15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BOTTOM);
+					if(j == HEIGHT - 1 && (!jp_chk || jp_chk->grid[i][0][k]==BlockType::BLOCK_AIR))		waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP,15, 0);
+					else if (j < HEIGHT - 1 && grid[i][j + 1][k]==BlockType::BLOCK_AIR)					waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::TOP,15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::TOP);
 
 					// place back and front
-					if (k == 0 && (!kn_chk || !blockDB.isSolidCube(kn_chk->grid[i][j][SZ - 1])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, 15, 0);
-					else if (k > 0 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k - 1]))		waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
-					if (k == SZ - 1 && (!kp_chk || !blockDB.isSolidCube(kp_chk->grid[i][j][0])))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, 15, 0);
-					else if (k < SZ - 1 && !BlockDB::GetInstance().isSolidCube(grid[i][j][k + 1]))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
+					if (k == 0 && (!kn_chk || kn_chk->grid[i][j][SZ - 1]==BlockType::BLOCK_AIR))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, 15, 0);
+					else if (k > 0 && grid[i][j][k - 1]==BlockType::BLOCK_AIR)						waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::BACK, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::BACK);
+					if (k == SZ - 1 && (!kp_chk || kp_chk->grid[i][j][0]==BlockType::BLOCK_AIR))	waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, 15, 0);
+					else if (k < SZ - 1 && grid[i][j][k + 1]==BlockType::BLOCK_AIR)					waterRenderObj.PlaceBlockFaceData(blkTy, pos, Block::Face::FRONT, 15, 0);//idxCnt += block->PlaceFaceData(vtxdata, uvdata, idxdata, INOUT vtxCnt, Block::Face::FRONT);
 					break;
 				case BlockDB::RenderType::CUTOUT:
 					// place all faces, without culling
