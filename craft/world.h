@@ -155,7 +155,8 @@ public:
 	static const int MAP_SIZE = 512;
 	static const int WS_MAP_SPAN = 512*8;
 	static const int RIVER_NOISE_AMPLITUDE = 8;
-
+	static const int SHIFT_DISTANCE_TO_RIVER = 1;
+	static const int MASK_DISTANCE_TO_RIVER = 0b11110;
 	static const int FLAG_RIVER = 1;
 	using BiomeMap_t = Map<BiomeData, MAP_SIZE>;
 	using LandscapeMap_t = Map<LandscapeData, MAP_SIZE>;
@@ -209,7 +210,6 @@ public:
 	void ReplaceSurface(Chunk* chunk);
 	
 	void GenerateBiomass(Chunk& chunk);
-
 	
 protected:
 	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);

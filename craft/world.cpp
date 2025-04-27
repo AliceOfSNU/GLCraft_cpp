@@ -39,6 +39,8 @@ Chunk::Chunk() :blockCnt(0), isBuilt(false), requiresRebuild(false), initialized
 	std::fill(&grid[0][0][0], &grid[0][0][0] + sizeof(grid)/sizeof(grid[0][0][0]), BlockType::BLOCK_AIR);
 	std::fill(&light[0][0][0], &light[0][0][0] + sizeof(light)/sizeof(light[0][0][0]), 0);
 	std::fill(&torchlight[0][0][0], &torchlight[0][0][0] + sizeof(torchlight)/sizeof(torchlight[0][0][0]), 0);
+	std::fill(&terrainProperties[0][0], &terrainProperties[0][0] + sizeof(terrainProperties)/sizeof(terrainProperties[0][0]), 0);
+
 };
 
 Chunk::Chunk(const ivec3& pos, const ivec3& cidx) : blockCnt(0), isBuilt(false), requiresRebuild(false), initialized(false), basepos(pos), chunkIdx(cidx) {
@@ -48,6 +50,7 @@ Chunk::Chunk(const ivec3& pos, const ivec3& cidx) : blockCnt(0), isBuilt(false),
 	std::fill(&grid[0][0][0], &grid[0][0][0] + sizeof(grid)/sizeof(grid[0][0][0]), BlockType::BLOCK_AIR);
 	std::fill(&light[0][0][0], &light[0][0][0] + sizeof(light)/sizeof(light[0][0][0]), 0);
 	std::fill(&torchlight[0][0][0], &torchlight[0][0][0] + sizeof(torchlight)/sizeof(torchlight[0][0][0]), 0);
+	std::fill(&terrainProperties[0][0], &terrainProperties[0][0] + sizeof(terrainProperties)/sizeof(terrainProperties[0][0]), 0);
 };
 
 void Chunk::BuildLights(){
@@ -670,7 +673,7 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
 			bool isRiver = chunk->terrainProperties[i][k] & FLAG_RIVER;
 			
-			if (isOcean || isRiver) continue; //do not replace surface for ocean floors
+			if (isOcean) continue; //do not replace surface for ocean floors
 
 			int top = chunk->blockHeight[i][k] - chunk->basepos.y;
 			for (int b = 0, accDepth = 0; b < biome.surfaceBlockTypes.size(); ++b) {
@@ -690,6 +693,7 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 	}
 	return;
 }
+
 float TerrainGeneration::simpleNoiseFn(int ix, int iy) {
 	const unsigned w = 8 * sizeof(unsigned);
 	const unsigned s = w / 2;
@@ -718,10 +722,23 @@ void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
 			int bi = chunk.basepos.x + i, bk = chunk.basepos.z + k;
 			glm::ivec3 basepos{ i, top + 1, k };
 			float r = simpleNoiseFn(bi, bk); // create a flower with probability ~0.05
-
-			switch (biome) {
-			case BiomeType::GRASSLAND: //GRASSLAND -> FLOWERS
-			case BiomeType::RAINFOREST:
+			float rch = simpleNoiseFn(chunk.basepos.x, chunk.basepos.z);
+			if(biome == BiomeType::SHRUBLAND
+				|| biome == BiomeType::GRASSLAND)
+			{
+				float rn = riverNoise.samplePoint(bi, bk) * RIVER_NOISE_AMPLITUDE;
+				rn = std::abs(std::min(std::max(rn, -1.0f), 1.0f));
+				float s = simpleNoiseFn(bi, bk);
+				if(rn < 0.3){
+					BlockDB::BlockType blkType = BlockDB::BlockType::BLOCK_WHEAT;
+					if(s > 0.75){
+						chunk.PlaceBlockAtCompileTime(basepos, blkType);
+						chunk.PlaceBlockAtCompileTime(basepos + glm::ivec3(0, 1, 0), blkType);
+					}else if(s > 0.5){
+						chunk.PlaceBlockAtCompileTime(basepos, blkType);
+					}
+				}
+			}else if(biome==BiomeType::RAINFOREST){
 				if (r > 0.97) {
 					// generate flowers
 					float s = simpleNoiseFn((bi+bk)/20, (bi-bk)/20);
@@ -730,28 +747,25 @@ void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
 						chunk.PlaceBlockAtCompileTime(basepos + rpos, blkType);
 					}
 				}
-				else if (r > 0.94) {
+				else if (r > 0.95) {
 					// generate trees
 					auto tree = Trees::Make(Trees::ELM);
 					for (auto& [rpos, blkType] : tree) {
 						chunk.PlaceBlockAtCompileTime(basepos + rpos, blkType);
 					}
 				}
-				break;
-				
-			case BiomeType::SNOWLAND: //SNOWLAND -> SPRUCE
-			case BiomeType::TUNDRA: //SNOWLAND -> SPRUCE
-				if (r > 0.97) {
+			}else if (
+				biome == BiomeType::SNOWLAND || 
+				biome == BiomeType::TUNDRA
+			){ //SNOWLAND -> SPRUCE
+				if (r > 0.98) {
 					// generate trees
 					auto tree = Trees::Make(Trees::BIRCH);
 					for (auto& [rpos, blkType] : tree) {
 						chunk.PlaceBlockAtCompileTime(basepos + rpos, blkType);
 					}
 				}
-				break;
-
 			}
-
 		}
 	}
 	return;
