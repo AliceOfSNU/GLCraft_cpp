@@ -68,7 +68,8 @@ public:
 
 	int blockHeight[SZ][SZ]; //the number of blocks in each column
 	BiomeType blockBiome[SZ][SZ]; //the biome type for each column
-	
+	int terrainProperties[SZ][SZ]; //any special peroperties like river
+
 	size_t blockCnt;
 	//GLuint vtxCnt; //number of vertices to render(VBO)
 	//GLuint idxCnt; //number of indices to render(EBO)
@@ -149,10 +150,13 @@ class TerrainGeneration {
 public:
 	FractalNoise2D heightNoise;
 	FractalNoise2D roughnessNoise;
-
+	FractalNoise2D riverNoise;
 	FractalNoise2D slowNoise, fastNoise;
 	static const int MAP_SIZE = 512;
 	static const int WS_MAP_SPAN = 512*8;
+	static const int RIVER_NOISE_AMPLITUDE = 8;
+
+	static const int FLAG_RIVER = 1;
 	using BiomeMap_t = Map<BiomeData, MAP_SIZE>;
 	using LandscapeMap_t = Map<LandscapeData, MAP_SIZE>;
 	std::map<pii, BiomeMap_t> biomeMap;

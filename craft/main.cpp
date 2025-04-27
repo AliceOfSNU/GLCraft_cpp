@@ -107,7 +107,7 @@ int main() {
 	CircleFill circleUI(70.f);
 	WeatherParticleRenderObj rainRenderObj(60.0f, 100.0f, 3000);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 18, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 19, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);

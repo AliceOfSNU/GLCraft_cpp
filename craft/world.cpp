@@ -494,10 +494,6 @@ double FractalNoise2D::samplePoint(double x, double y) {
 TerrainGeneration::TerrainGeneration() {
 	heightNoise.persistance = 0.5;
 	roughnessNoise.persistance = 0.5;
-	//base
-	//heightNoise.octaves.push_back(0.004f);
-	//heightNoise.octaves.push_back(0.01f);
-	//heightNoise.octaves.push_back(0.05f);
 
 	//mountains and plains are created by modulating height noise by roughness noise.
 	heightNoise.octaves.push_back(0.05f);
@@ -508,6 +504,10 @@ TerrainGeneration::TerrainGeneration() {
 	slowNoise.persistance = 0.5;
 	fastNoise.octaves.push_back(0.03f);
 	fastNoise.persistance = 0.5;
+
+	// rivers are created by lerping between terrain and river depth by another perlin noise
+	riverNoise.persistance = 1.0;
+	riverNoise.octaves.push_back(0.002f);
 }
 
 void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
@@ -515,42 +515,30 @@ void TerrainGeneration::GenerateRocks(Chunk* chunk) { //TO BE DEPRECATED
 	const int base_terrain_scale = 40;
 	for (int i = 0; i < Chunk::SZ; ++i) {
 		for (int k = 0; k < Chunk::SZ; ++k) {
-			//double roughness = 0.5 + roughnessNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
-			//int elevation = base_terrain_offset + base_terrain_scale * roughness * heightNoise.samplePoint(i + chunk->basepos.x + 0.5, k + chunk->basepos.z + 0.5);
 			int elevation = chunk->blockHeight[i][k];
 
 			// invert the elevation if ocean
 			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
-			//if (isOcean) {
-			//	elevation = std::min(elevation, -elevation);
-			//	elevation = std::min(elevation, -1);
-			//}
 			
+			// fill with water if river
+			bool isRiver = chunk->terrainProperties[i][k] & FLAG_RIVER;
+
 			int j = 0; //height in chunk
 			for (; j < Chunk::HEIGHT; ++j) {
 				if (chunk->basepos.y + j > elevation) break;
 				BlockDB::BlockType type = BlockDB::BlockType::BLOCK_GRANITE;
-				//if (chunk->basepos.y + j == elevation) type = BlockDB::BlockType::BLOCK_GRASS;
 				chunk->grid[i][j][k] = type;
-				//block->pos.x = chunk->basepos.x + i;
-				//block->pos.z = chunk->basepos.z + k;
-				//block->pos.y = chunk->basepos.y + j;
 				chunk->blockCnt++;
 			}
 
 			int jsurf= j;
-			if (isOcean) {
+			if (isOcean || isRiver) {
 				//fill up to water level = 0
 				for (; chunk->basepos.y + j <= 0 && j < Chunk::HEIGHT; ++j) {
 					chunk->grid[i][j][k] = BlockDB::BlockType::BLOCK_WATER;
-					//Block* block = chunk->grid[i][j][k] = new Block(BlockDB::BlockType::BLOCK_WATER);
-					//block->pos.x = chunk->basepos.x + i;
-					//block->pos.z = chunk->basepos.z + k;
-					//block->pos.y = chunk->basepos.y + j;
 					chunk->blockCnt++;
 				}
 			}
-			//chunk->blockHeight[i][k] = std::min(Chunk::HEIGHT, jsurf); //holds ocean floor value for water
 		}
 	}
 }
@@ -641,7 +629,6 @@ void TerrainGeneration::GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biom
 }
 
 void TerrainGeneration::GenerateTerrainHeightsFromMap(Chunk* chunk, const LandscapeMap_t lscapeMp, const BiomeMap_t biomeMp) {
-
 	for (int i = 0; i < Chunk::SZ; ++i) {
 		for (int k = 0; k < Chunk::SZ; ++k) {
 			int x = chunk->basepos.x + i, z = chunk->basepos.z + k;
@@ -655,17 +642,22 @@ void TerrainGeneration::GenerateTerrainHeightsFromMap(Chunk* chunk, const Landsc
 			int scale = lsdata.maxAbsScale;
 			float fn = fastNoise.samplePoint(x, z), sn = slowNoise.samplePoint(x, z);
 			float h = alpha * fn + (1.0f - alpha) * sn;
-
 			//2. invert elevation if ocean
 			bool isOcean = biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::SHALLOW_OCEAN || biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::DEEP_OCEAN;
+			//3. carve river
+			float rn = riverNoise.samplePoint(x, z) * RIVER_NOISE_AMPLITUDE;
+			rn = std::abs(std::min(std::max(rn, -1.0f), 1.0f));
+			bool isRiver = rn < 0.99f;
 			if (isOcean)
 				chunk->blockHeight[i][k] = std::min(-1, static_cast<int>(scale * (-1.0f + h)));
-			else {
+			else if(isRiver){
+				chunk->terrainProperties[i][k] |= FLAG_RIVER;
+				chunk->blockHeight[i][k] = lerp(-5.0f, scale*(1.0f+h), rn);
+			} else {
 				chunk->blockHeight[i][k] = scale * (1.0f + h);
 			}
 		}
 	}
-
 	return;
 }
 
@@ -676,7 +668,9 @@ void TerrainGeneration::ReplaceSurface(Chunk* chunk) {
 			//1. get replacement data for biome
 			BiomeDB::BiomeDataRow biome = BiomeDB::GetInstance().biomes[chunk->blockBiome[i][k]];
 			bool isOcean = chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN || chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN;
-			if (isOcean) continue; //do not replace surface for ocean floors
+			bool isRiver = chunk->terrainProperties[i][k] & FLAG_RIVER;
+			
+			if (isOcean || isRiver) continue; //do not replace surface for ocean floors
 
 			int top = chunk->blockHeight[i][k] - chunk->basepos.y;
 			for (int b = 0, accDepth = 0; b < biome.surfaceBlockTypes.size(); ++b) {
