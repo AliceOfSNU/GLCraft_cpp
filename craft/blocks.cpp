@@ -92,6 +92,7 @@ BlockDB::BlockDB() {
 	tbl[BlockType::BLOCK_DANDELION] = BlockDataRow{ BlockType::BLOCK_DANDELION,	 { BlockTextures::DANDELION,	BlockTextures::DANDELION,   },	RenderType::CUTOUT, MeshType::FLOWER, false };
 	tbl[BlockType::BLOCK_CYAN_FLOWER]=BlockDataRow{ BlockType::BLOCK_CYAN_FLOWER,{ BlockTextures::CYAN_FLOWER,	BlockTextures::CYAN_FLOWER, },	RenderType::CUTOUT, MeshType::FLOWER, false };
 	tbl[BlockType::BLOCK_WHEAT]=	  BlockDataRow{ BlockType::BLOCK_WHEAT,		 { BlockTextures::WHEAT,		BlockTextures::WHEAT, 		},	RenderType::CUTOUT, MeshType::FLOWER, false };
+	tbl[BlockType::BLOCK_SUGARCANE]=  BlockDataRow{ BlockType::BLOCK_SUGARCANE,	 { BlockTextures::SUGARCANE,	BlockTextures::SUGARCANE, 	},	RenderType::CUTOUT, MeshType::FLOWER, false };
 	tbl[BlockType::BLOCK_AIR] =		  BlockDataRow{ BlockType::BLOCK_AIR,		 { BlockTextures::NONE,			BlockTextures::NONE,		 BlockTextures::NONE,		BlockTextures::NONE,		BlockTextures::NONE,		BlockTextures::NONE},	   RenderType::INVISIBLE, MeshType::CUBE, false };
 
 	// STAIRS

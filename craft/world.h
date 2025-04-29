@@ -26,6 +26,7 @@
 #include "plants.hpp"
 
 using pii = std::pair<int, int>;
+using pff = std::pair<float, float>;
 using namespace MapGen;
 
 
@@ -160,9 +161,11 @@ public:
 	static const int FLAG_RIVER = 1;
 	using BiomeMap_t = Map<BiomeData, MAP_SIZE>;
 	using LandscapeMap_t = Map<LandscapeData, MAP_SIZE>;
+	using VoronoiMap_t = Map<pff, MAP_SIZE>;
 	std::map<pii, BiomeMap_t> biomeMap;
+	std::map<pii, VoronoiMap_t> voronoiMap;
 	std::map<pii, LandscapeMap_t> landscapeMap;
-
+	
 	TerrainGeneration();
 
 	//6������ ��ǥ -> grasslands biome�� ����� ����
@@ -181,7 +184,7 @@ public:
 	/// <param name="basepos">the world x-z position. the coordinates must be divisible by the returned map's scale</param>
 	/// <param name="biomeMp">OUT biome map containing the query position</param>
 	/// <param name="biomeMp">OUT landscape map containing the query position</param>
-	void FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
+	void FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp, OUT VoronoiMap_t& voronoiMp);
 	
 	/// <summary>
 	/// Uses Voronoi zoom to go from the maximum resolution 4x4 of biome map
@@ -190,7 +193,7 @@ public:
 	/// </summary>
 	/// <param name="chunk">the chunk to operate on</param>
 	/// <param name="biomeMp">the map to zoom at</param>
-	void GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biomeMp);
+	void GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t& biomeMp, const VoronoiMap_t& voronoiMp);
 
 	/// <summary>
 	/// uses landscape paramters (absolute scale and roughness)
@@ -212,8 +215,9 @@ public:
 	void GenerateBiomass(Chunk& chunk);
 	
 protected:
-	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
+	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp, OUT VoronoiMap_t& voronoiMp);
 	float simpleNoiseFn(int ix, int iy);
+	void generateSugarCanes(Chunk& chunk, glm::ivec3& basepos, float r);
 };
 
 class World {

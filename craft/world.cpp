@@ -558,7 +558,7 @@ void ASSERT_VALID_MAP(Map<BiomeData, SZ> mp) {
 	}
 }
 
-void TerrainGeneration::GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp) {
+void TerrainGeneration::GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp, OUT VoronoiMap_t& voronoiMp) {
 	// level 8
 	Map<float, 1> baseMp({ basepos.first, basepos.second }, MAP_SIZE); //total map size is gonna be 512 * 8 = 4096 * 4096
 	Map<float, 8> noiseMp = WhiteNoise<8>::Forward(baseMp);
@@ -588,11 +588,21 @@ void TerrainGeneration::GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT La
 	biomeMp = Zoom<BiomeData, 256>::Forward(biomeMp256);
 	lscapeMp = NoisyZoom<LandscapeData, 256>::Forward(landscapeMp256);
 
-	ASSERT_VALID_MAP(biomeMp);
+	//// some voronoi noise
+	voronoiMp = VoronoiMap_t(biomeMp.basepos, biomeMp.scale);
+	for(int i = 0; i < voronoiMp.size(); ++i){
+		for(int k = 0; k < voronoiMp.size(); ++k){
+			vec2i p = voronoiMp.MapToWorldPoint(i, k);
+			float seedx = i + simpleNoiseFn(2*p.x, 2*p.y);
+			float seedy = k + simpleNoiseFn(2*p.x + 1, 2*p.y + 1);
+			voronoiMp.data[i][k] = {seedx, seedy};
+		}
+	}
+	// ASSERT_VALID_MAP(biomeMp);
 	return;
 }
 
-void TerrainGeneration::FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp) {
+void TerrainGeneration::FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp, OUT VoronoiMap_t& voronoiMp){
 	//1. get the map base position
 	//base position is in world space
 	pii mapbase = { floor(static_cast<float>(basepos.first) / WS_MAP_SPAN) * WS_MAP_SPAN,floor(static_cast<float>(basepos.second) / WS_MAP_SPAN) * WS_MAP_SPAN };
@@ -603,23 +613,38 @@ void TerrainGeneration::FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OU
 	if (biomeMap.count(mapbase)) {
 		biomeMp = biomeMap[mapbase];
 		lscapeMp = landscapeMap[mapbase];
+		voronoiMp = voronoiMap[mapbase];
 		return;
 	}
 
 	//3. create map if not exist
-	GenerateMap(mapbase, OUT biomeMp, OUT lscapeMp);
+	GenerateMap(mapbase, OUT biomeMp, OUT lscapeMp, OUT voronoiMp);
 
 	//4. cache the map 
 	biomeMap[mapbase] = biomeMp;
 	landscapeMap[mapbase] = lscapeMp;
+	voronoiMap[mapbase] = voronoiMp;
 	return;
 }
 
-void TerrainGeneration::GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biomeMp) {
+void TerrainGeneration::GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t& biomeMp, const VoronoiMap_t& voronoiMp) {
 	for (int i = 0; i < Chunk::SZ; ++i) {
 		for (int k = 0; k < Chunk::SZ; ++k) {
 			MapGen::vec2i xz = biomeMp.WorldToMapPoint(chunk->basepos.x + i, chunk->basepos.z + k);
-			chunk->blockBiome[i][k] = biomeMp.data[xz.x][xz.y].biomeType;
+			MapGen::vec2f xzf = biomeMp.WorldToMapPointF(chunk->basepos.x + i, chunk->basepos.z + k);
+			
+			MapGen::vec2i best = xz; float best_d = 10000.0f;
+			int dis[] {-1, 0, 1}, dks[] {-1, 0, 1};
+			for(int di: dis){
+				for(int dk: dks){
+					pff& seed = voronoiMp.data[xz.x + di][xz.y + dk];
+					float d = (xzf.x - seed.first)*(xzf.x - seed.first) + (xzf.y - seed.second)*(xzf.y - seed.second);
+					if(d < best_d){
+						best_d = d; best = {xz.x + di, xz.y + dk};
+					}
+				}
+			}
+			chunk->blockBiome[i][k] = biomeMp.data[best.x][best.y].biomeType;
 
 			if (biomeMp.data[xz.x][xz.y].biomeType < 0 || biomeMp.data[xz.x][xz.y].biomeType >= BiomeType::BIOME_COUNT) {
 				throw std::out_of_range("chunk->blockBiome has corrupted values");
@@ -646,7 +671,7 @@ void TerrainGeneration::GenerateTerrainHeightsFromMap(Chunk* chunk, const Landsc
 			float fn = fastNoise.samplePoint(x, z), sn = slowNoise.samplePoint(x, z);
 			float h = alpha * fn + (1.0f - alpha) * sn;
 			//2. invert elevation if ocean
-			bool isOcean = biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::SHALLOW_OCEAN || biomeMp.data[xzb.x][xzb.y].biomeType == BiomeType::DEEP_OCEAN;
+			bool isOcean = chunk->blockBiome[i][k] == BiomeType::SHALLOW_OCEAN || chunk->blockBiome[i][k] == BiomeType::DEEP_OCEAN;
 			//3. carve river
 			float rn = riverNoise.samplePoint(x, z) * RIVER_NOISE_AMPLITUDE;
 			rn = std::abs(std::min(std::max(rn, -1.0f), 1.0f));
@@ -709,6 +734,43 @@ float TerrainGeneration::simpleNoiseFn(int ix, int iy) {
 	return fmodf(random + 0.2f, 1.0f);
 }
 
+void TerrainGeneration::generateSugarCanes(Chunk& chunk, glm::ivec3& basepos, float r){
+	// generate sugar canes near ocean biomes
+	int i = basepos.x, k = basepos.z;	
+	if(chunk.blockBiome[i][k] == BiomeType::GRASSLAND ||
+		chunk.blockBiome[i][k] == BiomeType::SHRUBLAND ||
+		chunk.blockBiome[i][k] == BiomeType::DESERT
+	){
+
+		int di[] {-1, 0, 1, 0}, dk[] {0, 1, 0, -1};
+		BlockDB::BlockType blkType = BlockDB::BlockType::BLOCK_SUGARCANE;
+		bool isShore = false;
+		for(int dir = 0; dir < 4; ++dir){
+			int ni = i + di[dir], nk = k + dk[dir];
+			if(ni < 0 || ni >= Chunk::SZ || nk < 0 || nk >= Chunk::SZ) continue;
+			if(chunk.blockBiome[ni][nk] == BiomeType::SHALLOW_OCEAN || chunk.blockBiome[ni][nk] == BiomeType::DEEP_OCEAN){
+				isShore = true; break;
+			}
+		} 
+		if(isShore && r > 0.95f){
+			int h = 1;
+			if(r > 0.99){
+				h = 4;
+			}else if(r > 0.98){
+				h = 3;
+			}
+			else if(r > 0.96){
+				h = 2;
+			}else{
+				h = 1;
+			}
+			for(int hh = 0; hh < h; ++hh){
+				chunk.PlaceBlockAtCompileTime(basepos + glm::ivec3{0, hh, 0}, blkType);
+			}
+		}
+	}
+}
+
 void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
 	for (int i = 0; i < Chunk::SZ; ++i) {
 		for (int k = 0; k < Chunk::SZ; ++k) {
@@ -723,14 +785,17 @@ void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
 			glm::ivec3 basepos{ i, top + 1, k };
 			float r = simpleNoiseFn(bi, bk); // create a flower with probability ~0.05
 			float rch = simpleNoiseFn(chunk.basepos.x, chunk.basepos.z);
+			generateSugarCanes(chunk, basepos, r);
+
+
 			if(biome == BiomeType::SHRUBLAND
 				|| biome == BiomeType::GRASSLAND)
 			{
 				float rn = riverNoise.samplePoint(bi, bk) * RIVER_NOISE_AMPLITUDE;
 				rn = std::abs(std::min(std::max(rn, -1.0f), 1.0f));
 				float s = simpleNoiseFn(bi, bk);
+				BlockDB::BlockType blkType = BlockDB::BlockType::BLOCK_WHEAT;
 				if(rn < 0.3){
-					BlockDB::BlockType blkType = BlockDB::BlockType::BLOCK_WHEAT;
 					if(s > 0.75){
 						chunk.PlaceBlockAtCompileTime(basepos, blkType);
 						chunk.PlaceBlockAtCompileTime(basepos + glm::ivec3(0, 1, 0), blkType);
@@ -774,8 +839,9 @@ void TerrainGeneration::GenerateBiomass(Chunk& chunk) {
 void TerrainGeneration::Generate(Chunk* chunk) {
 	BiomeMap_t biomeMp;
 	LandscapeMap_t lscapeMp;
-	FindOrCreateMap({ chunk->basepos.x, chunk->basepos.z }, OUT biomeMp, OUT lscapeMp);
-	GenerateBiomeFromMap(chunk, biomeMp);
+	VoronoiMap_t voronoiMp;
+	FindOrCreateMap({ chunk->basepos.x, chunk->basepos.z }, OUT biomeMp, OUT lscapeMp, OUT voronoiMp);
+	GenerateBiomeFromMap(chunk, biomeMp, voronoiMp);
 	GenerateTerrainHeightsFromMap(chunk, lscapeMp, biomeMp);
 	GenerateRocks(chunk);
 	ReplaceSurface(chunk);
