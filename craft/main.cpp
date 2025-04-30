@@ -147,6 +147,8 @@ int main() {
 		glm::vec3 curr_pos = Camera::MainCamera.position;
 		glm::vec3 begin_pos = last_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
 		glm::vec3 end_pos = curr_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
+		// comment out below line to disable (temp)gravity
+		end_pos -= deltaTime * 9.8f * glm::vec3{0.0f, 1.0f, 0.0f};
 
 		// comment below two lines to disable physics
 		glm::vec3 updated_pos = updatePositionWithCollisionCheck(begin_pos, end_pos, { 1.0f, 2.0f, 1.0f });
@@ -437,6 +439,7 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 	Collision::AABB swAABB = checker.ComputeBroadphaseAABB(); //get swept AABB
 
 	std::vector<Collision::AABB> colliders;
+	std::vector<std::pair<Chunk::ivec3, Chunk::ivec3>> collide_blocks;
 	int endx = (int)(swAABB.start.x + swAABB.scale.x + 0.5f);
 	int endy = (int)(swAABB.start.y + swAABB.scale.y + 0.5f);
 	int endz = (int)(swAABB.start.z + swAABB.scale.z + 0.5f);
@@ -447,9 +450,22 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 				Chunk::ivec3 blockidx = chunk->FindBlockIndex({ x, y, z });
 				if (chunk->grid[blockidx.x][blockidx.y][blockidx.z] != BlockDB::BlockType::BLOCK_AIR) {
 					colliders.push_back({ {x-0.5f, y-0.5f, z-0.5f}, {1.0f, 1.0f, 1.0f}, chunk->grid[blockidx.x][blockidx.y][blockidx.z] });
+					collide_blocks.push_back({chunk->chunkIdx, blockidx});
 				}
 			}
 		}
+	}
+
+	// check lateral collision for climbing up stairs!
+	Collision::Collision lat_col = checker.GetLateralHit(colliders);
+	if(lat_col.normal.x * lat_col.vel.x > 0.005 || lat_col.normal.x * lat_col.vel.x < -0.005 ||
+		lat_col.normal.z * lat_col.vel.z > 0.005 || lat_col.normal.z * lat_col.vel.z < -0.005){
+			auto& [cidx, bidx] = collide_blocks[lat_col.hit_index];
+			BlockDB::BlockType upblock = World::GetInstance().GetChunkByIndex(cidx)->grid[bidx.x][bidx.y+1][bidx.z];
+			if(Camera::MainCamera.pitch < 0 && upblock == BlockDB::BlockType::BLOCK_AIR){
+				lat_col.remain_vel.y = 0.01f;
+			}
+			checker = Collision::CollisionCheck(lat_col.stop_pos, lat_col.stop_pos + lat_col.remain_vel, box_dims);
 	}
 	Collision::Collision col = checker.GetFirstHit(colliders);
 	checker = Collision::CollisionCheck(col.stop_pos, col.stop_pos + col.remain_vel, box_dims);

@@ -19,6 +19,7 @@ namespace Collision {
 		glm::vec3 normal; // the outward facing unit vector of the surface that the object collided with.s
 		float time; // t (in proportion of velocity) until first collision
 		glm::vec3 stop_pos; // final position, assuming object stops immediately after colliding.
+		int hit_index; // the index of the AABB that we hit in the vector given as input.
 	};
 
 	// a block has integer center positions,
@@ -57,6 +58,7 @@ namespace Collision {
 		// boxes: AABBs to check for collision with.
 		Collision GetFirstHit(const std::vector<AABB>& boxes);
 
+		Collision GetLateralHit(const std::vector<AABB>& boxes);
 		glm::vec3 GetHitNormal(EntryEvent entry);
 		// returns the second hit, assumes GetFirstHit() is already called.
 		// Collision GetSecondHit();
