@@ -935,7 +935,6 @@ Chunk* World::GetChunkContainingBlock(const glm::ivec3& worldpos) {
 	else return nullptr;
 }
 
-
 void World::Build() {
 	//if any visible chunk has modifications,
 	//rebuild it.

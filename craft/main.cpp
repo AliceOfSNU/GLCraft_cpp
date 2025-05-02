@@ -17,6 +17,7 @@
 #include "collision.h"
 #include "rendering.hpp"
 #include "weather.h"
+#include "entities.h"
 using namespace std;
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -128,6 +129,11 @@ int main() {
 	double applicationStartTime = glfwGetTime();
 	size_t frameCnt = 0;
 	last_pos = Camera::MainCamera.position;
+
+	// testing animals
+	Animal::LoadModels();
+	// Animal::allAnimals.insert(make_shared<Animal>(Animal::AnimalType::PIG, glm::vec3(126.f, 32.0f, 170.0f), 0));
+
 	while (!glfwWindowShouldClose(window)) {
 
 
@@ -148,7 +154,7 @@ int main() {
 		glm::vec3 begin_pos = last_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
 		glm::vec3 end_pos = curr_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
 		// comment out below line to disable (temp)gravity
-		end_pos -= deltaTime * 9.8f * glm::vec3{0.0f, 1.0f, 0.0f};
+		//end_pos -= deltaTime * 9.8f * glm::vec3{0.0f, 1.0f, 0.0f};
 
 		// comment below two lines to disable physics
 		glm::vec3 updated_pos = updatePositionWithCollisionCheck(begin_pos, end_pos, { 1.0f, 2.0f, 1.0f });
@@ -222,8 +228,9 @@ int main() {
 		// world update
 		World::GetInstance().UpdateChunks(Camera::MainCamera.position);
 		World::GetInstance().Build();
-		//world.Render();
-		
+		Animal::Remove(Camera::MainCamera.position);
+		Animal::Spawn(Camera::MainCamera.position);
+
 		//-------- Render
 		shader.use();
 		shader.setMat4f("model", glm::value_ptr(model));
@@ -287,6 +294,13 @@ int main() {
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			for(auto& [bidx, renderobj]: chunk->modelRenderObjs){
 				renderobj.Render();
+			}
+		}
+		for(auto& animal: Animal::allAnimals){
+			if(glm::length(animal->position - Camera::MainCamera.position) < Animal::RENDER_DIST){
+				animal->Update(deltaTime);
+				texShader.setMat4f("model", glm::value_ptr(animal->ComputeModelMatrix()));
+				animal->renderobj.Render();
 			}
 		}
 		//-------- Weather particles
@@ -447,6 +461,7 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 		for (int y = (int)(swAABB.start.y-0.5f); y <= endy; ++y) {
 			for (int z = (int)(swAABB.start.z-0.5f); z <= endz; ++z) {
 				Chunk* chunk = World::GetInstance().CurrentChunk({ x, y, z });
+				if(!chunk) continue;
 				Chunk::ivec3 blockidx = chunk->FindBlockIndex({ x, y, z });
 				if (chunk->grid[blockidx.x][blockidx.y][blockidx.z] != BlockDB::BlockType::BLOCK_AIR) {
 					colliders.push_back({ {x-0.5f, y-0.5f, z-0.5f}, {1.0f, 1.0f, 1.0f}, chunk->grid[blockidx.x][blockidx.y][blockidx.z] });

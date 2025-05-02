@@ -13,6 +13,7 @@ blocks.h
 gui.h
 plants.h
 collision.h
+entities.h
 debug.h
 weather.h
 )
@@ -29,6 +30,7 @@ collision.cpp
 debug.cpp
 weather.cpp
 model_utils.cpp
+entities.cpp
 )
 add_executable(GLcraft ${TARGET_SRC} main.cpp )
 add_subdirectory(generation)
