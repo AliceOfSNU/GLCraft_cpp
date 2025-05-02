@@ -25,7 +25,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void testRaycast(FacesSelection& selectedFaces);
-void raycastEntities();
+bool raycastEntities();
 constexpr int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 800;
 
 bool isWindowed = true;
@@ -48,6 +48,7 @@ glm::vec3 last_pos;
 glm::ivec3 selectedBlockIdx;
 int selectedFace = -1;
 bool selectedBlockExists;
+bool hitEntityExists;
 
 struct Timer {
 public:
@@ -163,8 +164,6 @@ int main() {
 
 		//block destruction
 		if (mouseHeld) {
-			//entity raycasting
-			raycastEntities();
 			//block destruction and placement
 			if (!selectedBlockExists) {
 				if (blockDestructionTimer.running) blockDestructionTimer.Stop();
@@ -192,12 +191,13 @@ int main() {
 		}
 		if (GUIManager::GetInstance().mouseEvent == 1) {
 			std::cout << selectedBlockIdx.x << "," << selectedBlockIdx.y << "," << selectedBlockIdx.z << '\n';
-			std::cout << selectedFace << std::endl;
 			dragTimer.Start();
+			//entity raycasting
+			hitEntityExists = raycastEntities();
 		} else if(GUIManager::GetInstance().mouseEvent == 2){
 			dragTimer.Stop();
 			glm::vec2 drag = GUIManager::GetInstance().mouseDrag;
-			if(!blockDestructionTimer.running && selectedBlockExists && (drag.x*drag.x + drag.y*drag.y) < 16.0f){
+			if(!hitEntityExists && !blockDestructionTimer.running && selectedBlockExists && (drag.x*drag.x + drag.y*drag.y) < 16.0f){
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
@@ -210,6 +210,7 @@ int main() {
 				}
 			}
 			blockDestructionTimer.Stop();
+			hitEntityExists = false;
 		}
 
 		//--------- RENDER
@@ -264,6 +265,7 @@ int main() {
 		texShader.setMat4f("model", glm::value_ptr(model));
 		texShader.setMat4f("view", glm::value_ptr(view));
 		texShader.setMat4f("proj", glm::value_ptr(proj));
+		texShader.setVec3f("tint", glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			for(auto& [bidx, renderobj]: chunk->modelRenderObjs){
 				renderobj.Render();
@@ -272,6 +274,11 @@ int main() {
 		for(auto& animal: Animal::allAnimals){
 			if(glm::length(animal->position - Camera::MainCamera.position) < Animal::RENDER_DIST){
 				animal->Update(deltaTime);
+				if(animal->hit_effect_time > 0){
+					texShader.setVec3f("tint", glm::value_ptr(glm::vec3(1.5f, 0.9f, 0.9f)));
+				}else{
+					texShader.setVec3f("tint", glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+				}
 				texShader.setMat4f("model", glm::value_ptr(animal->ComputeModelMatrix()));
 				animal->renderobj.Render();
 			}
@@ -492,7 +499,7 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 	return col3.stop_pos + col3.remain_vel;
 }
 
-void raycastEntities(){
+bool raycastEntities(){
 	glm::vec3 dir = Camera::MainCamera.ScreenPointToRay(mouseX, mouseY);
 	Ray ray(Camera::MainCamera.position, dir);
 	Raycaster raycast(ray, 10.0f);
@@ -506,8 +513,10 @@ void raycastEntities(){
 	Collision::BoxCollider hit;
 	if(raycast.GetFirstHit(OUT hit)){
 		auto animal = std::static_pointer_cast<Animal>(hit.entity);
-		animal->yaw = 0.0f;
+		animal->Hit();
+		return true;
 	}
+	return false;
 }
 
 void processInput(GLFWwindow* window)

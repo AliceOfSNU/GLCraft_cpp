@@ -20,7 +20,7 @@ public:
     };
 
     enum State {
-        MOVE, TURN, STOP, DEAD
+        MOVE, TURN, STOP, DYING, DEAD
     };
 
     // all animals should live here and basically not move elsewhere
@@ -34,8 +34,10 @@ public:
     ModelRenderObject renderobj;
     glm::vec3 position;
     glm::vec3 front = {1.0, 0.0, 0.0}, right;
-    float yaw;
+    float yaw, roll = 0.0f;
     float state_time = 0.f, target_time = 0.f;
+    float hit_effect_time = 0.0f;
+    int hp = 5;
     float speed = 1.0f, rotspeed = 5.0f;
     State state = STOP;
     
@@ -45,6 +47,7 @@ public:
 
     glm::mat4 ComputeModelMatrix();
     void Update(float deltaTime);
+    void Hit();
 };
 
 #endif

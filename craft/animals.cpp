@@ -26,6 +26,7 @@ Animal::Animal(AnimalType ty, glm::vec3 pos, float yw): position(pos), yaw(yw){
 glm::mat4 Animal::ComputeModelMatrix(){
     auto modelmat = glm::translate(glm::mat4(1.0f),position);
 	modelmat = glm::rotate(modelmat, glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+	modelmat = glm::rotate(modelmat, glm::radians(roll), right);
     return modelmat;
 }
 
@@ -76,8 +77,8 @@ glm::vec3 updatePositionWithCollisionCheck2(glm::vec3 begin_pos, glm::vec3 end_p
 void Animal::Update(float deltaTime){
     state_time += deltaTime;
     if(state_time > target_time){
-        if(state == MOVE){
-            state = STOP;
+		if(state == MOVE){
+			state = STOP;
 			target_time = (float)(rand()%5 + 3);
         }else if(state == STOP){
 			state = TURN; 
@@ -103,32 +104,54 @@ void Animal::Update(float deltaTime){
 				state = TURN;
 				target_time = (float)(rand()%5 + 3);
 			}
-        }
+        }else if(state == DYING){
+			state = DEAD;
+		}
         state_time = 0.0f;
     }else if(state == State::MOVE){
-        //position = position + speed * deltaTime * front;
+		//position = position + speed * deltaTime * front;
         glm::vec3 end_pos = position + speed * deltaTime * front;
         end_pos -= deltaTime * glm::vec3(0.0f, 9.8f, 0.0f);
 		position = updatePositionWithCollisionCheck2(position - glm::vec3{0.5f, 0.5f, 0.5f}, end_pos - glm::vec3{0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}) + glm::vec3(0.5f,0.5f,0.5f);
     }else if(state == State::TURN){
-        yaw += deltaTime * rotspeed;
+		yaw += deltaTime * rotspeed;
         glm::vec3 dir = glm::vec3(0.f, 0.f, 0.f);
         dir.x = cos(glm::radians(-yaw));
         dir.z = sin(glm::radians(-yaw));
         front = glm::normalize(dir);
         right = glm::normalize(glm::cross(front, glm::vec3(0.0,1.0,0.0)));
-        
-    }
+    }else if(state == State::DYING){
+		roll = state_time/target_time * 90.f;
+	}
+	
+	hit_effect_time -= deltaTime;
+	if(hit_effect_time < 0.0f) {
+		hit_effect_time = 0;
+	}
+
+	
+}
+
+void Animal::Hit(){
+	hit_effect_time = 0.5f;
+	hp -= 1;
+	if(hp <= 0) {
+		state = State::DYING;
+		state_time = 0.0, target_time = 1.0;
+	}
 }
 
 void Animal::Remove(glm::vec3 playerPosition){
 	std::vector<std::shared_ptr<Animal>> to_remove;
 	for(auto& animal:allAnimals){
 		auto pos = animal->position;
-		if(abs(pos.x - playerPosition.x) > 64 ||
-		abs(pos.y - playerPosition.y) > 64 ||
-		abs(pos.z - playerPosition.z) > 64)
-			to_remove.push_back(animal);
+		if(
+			animal->state == State::DEAD ||
+			abs(pos.x - playerPosition.x) > 64 ||
+			abs(pos.y - playerPosition.y) > 64 ||
+			abs(pos.z - playerPosition.z) > 64
+		)
+		to_remove.push_back(animal);
 	}
 
 	for(auto& animal: to_remove){
