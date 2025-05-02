@@ -17,7 +17,7 @@
 #include "collision.h"
 #include "rendering.hpp"
 #include "weather.h"
-#include "entities.h"
+#include "animals.h"
 using namespace std;
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -25,7 +25,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void testRaycast(FacesSelection& selectedFaces);
-
+void raycastEntities();
 constexpr int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 800;
 
 bool isWindowed = true;
@@ -163,7 +163,9 @@ int main() {
 
 		//block destruction
 		if (mouseHeld) {
-			
+			//entity raycasting
+			raycastEntities();
+			//block destruction and placement
 			if (!selectedBlockExists) {
 				if (blockDestructionTimer.running) blockDestructionTimer.Stop();
 			}
@@ -488,6 +490,24 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 	Collision::Collision col3 = checker.GetFirstHit(colliders);
 
 	return col3.stop_pos + col3.remain_vel;
+}
+
+void raycastEntities(){
+	glm::vec3 dir = Camera::MainCamera.ScreenPointToRay(mouseX, mouseY);
+	Ray ray(Camera::MainCamera.position, dir);
+	Raycaster raycast(ray, 10.0f);
+	for(auto& animal : Animal::allAnimals){
+		Collision::BoxCollider col = {animal->position - glm::vec3{0.5f, 0.5f, 0.5f},
+										{1.0f, 1.0f, 1.0f}, animal};
+		if(raycast.CheckAABB(col)){
+			raycast.colliders.push_back(col);
+		}
+	}
+	Collision::BoxCollider hit;
+	if(raycast.GetFirstHit(OUT hit)){
+		auto animal = std::static_pointer_cast<Animal>(hit.entity);
+		animal->yaw = 0.0f;
+	}
 }
 
 void processInput(GLFWwindow* window)

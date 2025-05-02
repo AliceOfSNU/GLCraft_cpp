@@ -16,12 +16,14 @@ collision.h
 entities.h
 debug.h
 weather.h
+animals.h
 )
 
 SET(TARGET_SRC
 glad.c
 rendering.cpp
 GLObjects.cpp
+ray.cpp
 blocks.cpp
 world.cpp
 gui.cpp
@@ -30,7 +32,7 @@ collision.cpp
 debug.cpp
 weather.cpp
 model_utils.cpp
-entities.cpp
+animals.cpp
 )
 add_executable(GLcraft ${TARGET_SRC} main.cpp )
 add_subdirectory(generation)

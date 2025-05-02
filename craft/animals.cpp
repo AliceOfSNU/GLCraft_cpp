@@ -1,4 +1,4 @@
-#include "entities.h"
+#include "animals.h"
 
 std::map<Animal::AnimalType, std::shared_ptr<ModelWrapper>> Animal::modelzoo = {};
 

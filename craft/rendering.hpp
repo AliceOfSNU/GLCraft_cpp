@@ -9,7 +9,6 @@
 #include <glad/glad.h>
 
 #include "GLObjects.h"
-#include "camera.h" 
 #include "blocks.hpp"
 #include "model_utils.h"
 class RenderObject {

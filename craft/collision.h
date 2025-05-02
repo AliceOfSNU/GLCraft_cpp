@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "blocks.hpp"
+#include "entities.h"
 // helper function, returns final position after collisions
 glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin, glm::vec3 end, glm::vec3 boxdim);
 
@@ -70,5 +71,12 @@ namespace Collision {
 		glm::vec3 box_dim;
 		Collision primary_collision;
 
+	};
+
+	class BoxCollider{
+	public:
+		glm::vec3 start;
+		glm::vec3 scale;
+		std::shared_ptr<Entity> entity;
 	};
 }
