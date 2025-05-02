@@ -47,6 +47,7 @@ public:
 		RenderType renderType;
 		MeshType meshType;
 		bool blocksLight;
+		bool walkThrough;
 		int numFaces() {
 			return faceTextures.size();
 		}
@@ -61,6 +62,7 @@ public:
 	std::map<BlockType, std::shared_ptr<ModelWrapper>> modelzoo;
 
 	bool isSolidCube(BlockType ty);
+	bool isWalkThrough(BlockType ty);
 	bool isTransparentBlock(BlockType ty);
 	BlockMeshData& GetMeshData(MeshType ty);
 	BlockType ReplaceBlockTypeByFace(BlockType ty, int face);

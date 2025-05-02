@@ -682,7 +682,7 @@ void TerrainGeneration::GenerateTerrainHeightsFromMap(Chunk* chunk, const Landsc
 				chunk->terrainProperties[i][k] |= FLAG_RIVER;
 				chunk->blockHeight[i][k] = lerp(-5.0f, scale*(1.0f+h), rn);
 			} else {
-				chunk->blockHeight[i][k] = scale * (1.0f + h);
+				chunk->blockHeight[i][k] =std::max(0, static_cast<int>(scale * (1.0f + h)));
 			}
 		}
 	}

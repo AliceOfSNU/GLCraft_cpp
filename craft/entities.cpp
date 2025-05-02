@@ -45,7 +45,7 @@ glm::vec3 updatePositionWithCollisionCheck2(glm::vec3 begin_pos, glm::vec3 end_p
 				Chunk* chunk = World::GetInstance().CurrentChunk({ x, y, z });
 				if(!chunk) continue;
 				Chunk::ivec3 blockidx = chunk->FindBlockIndex({ x, y, z });
-				if (chunk->grid[blockidx.x][blockidx.y][blockidx.z] != BlockDB::BlockType::BLOCK_AIR) {
+				if (!BlockDB::GetInstance().isWalkThrough(chunk->grid[blockidx.x][blockidx.y][blockidx.z])) {
 					colliders.push_back({ {x-0.5f, y-0.5f, z-0.5f}, {1.0f, 1.0f, 1.0f}, chunk->grid[blockidx.x][blockidx.y][blockidx.z] });
 					collide_blocks.push_back({chunk->chunkIdx, blockidx});
 				}
@@ -78,18 +78,38 @@ void Animal::Update(float deltaTime){
     if(state_time > target_time){
         if(state == MOVE){
             state = STOP;
+			target_time = (float)(rand()%5 + 3);
         }else if(state == STOP){
-            state = TURN; 
+			state = TURN; 
+			target_time = (float)(rand()%5 + 3);
         }else if(state == TURN){
-            state = MOVE;
+			bool can_move = false;
+			target_time = 0.0f;
+			for(int t = rand()%5+3; t >= 1; --t){
+				// check for water
+				glm::vec3 sim_pos = position + speed*t*front - glm::vec3(0.0, 1.0, 0.0);
+				glm::ivec3 chunkIdx = Chunk::WorldToChunkIndex(sim_pos);
+				Chunk* chunk = World::GetInstance().GetChunkByIndex(chunkIdx);
+				if (!chunk) continue;
+				glm::ivec3 bidx = chunk->FindBlockIndex(sim_pos);
+				if(chunk->grid[bidx.x][bidx.y][bidx.z] != BlockDB::BlockType::BLOCK_WATER){
+					can_move = true;
+					target_time = (float)(t);
+					break;
+				}
+			}
+			if(can_move) state = MOVE; // if cannot move, continue to turn!
+			else{
+				state = TURN;
+				target_time = (float)(rand()%5 + 3);
+			}
         }
-        target_time = 5.0f;
         state_time = 0.0f;
     }else if(state == State::MOVE){
         //position = position + speed * deltaTime * front;
         glm::vec3 end_pos = position + speed * deltaTime * front;
         end_pos -= deltaTime * glm::vec3(0.0f, 9.8f, 0.0f);
-        position = updatePositionWithCollisionCheck2(position - glm::vec3{0.5f, 0.5f, 0.5f}, end_pos - glm::vec3{0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}) + glm::vec3(0.5f,0.5f,0.5f);
+		position = updatePositionWithCollisionCheck2(position - glm::vec3{0.5f, 0.5f, 0.5f}, end_pos - glm::vec3{0.5f, 0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}) + glm::vec3(0.5f,0.5f,0.5f);
     }else if(state == State::TURN){
         yaw += deltaTime * rotspeed;
         glm::vec3 dir = glm::vec3(0.f, 0.f, 0.f);

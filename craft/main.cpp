@@ -244,7 +244,38 @@ int main() {
 			glDrawElements(GL_TRIANGLES, chunk->solidRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
 		
-		// 2. Water pass
+		// 2. Cutout pass
+		cutoutShader.use();
+		cutoutShader.setMat4f("model", glm::value_ptr(model));
+		cutoutShader.setMat4f("view", glm::value_ptr(view));
+		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
+		cutoutShader.setFloat("daylight_value", 0.7f);
+
+		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
+			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
+			chunk->cutoutRenderObj.vao.Bind();
+			glDrawElements(GL_TRIANGLES, chunk->cutoutRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
+		}
+		
+		// 3. Model pass
+		texShader.use();
+		texShader.setMat4f("model", glm::value_ptr(model));
+		texShader.setMat4f("view", glm::value_ptr(view));
+		texShader.setMat4f("proj", glm::value_ptr(proj));
+		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
+			for(auto& [bidx, renderobj]: chunk->modelRenderObjs){
+				renderobj.Render();
+			}
+		}
+		for(auto& animal: Animal::allAnimals){
+			if(glm::length(animal->position - Camera::MainCamera.position) < Animal::RENDER_DIST){
+				animal->Update(deltaTime);
+				texShader.setMat4f("model", glm::value_ptr(animal->ComputeModelMatrix()));
+				animal->renderobj.Render();
+			}
+		}
+		
+		// 4. Water pass
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
 		waterShader.use();
@@ -271,38 +302,6 @@ int main() {
 		}
 		glDisable(GL_BLEND);
 
-
-		// 3. Cutout pass
-		cutoutShader.use();
-		cutoutShader.setMat4f("model", glm::value_ptr(model));
-		cutoutShader.setMat4f("view", glm::value_ptr(view));
-		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
-		cutoutShader.setFloat("daylight_value", 0.7f);
-
-		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
-			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
-			chunk->cutoutRenderObj.vao.Bind();
-			glDrawElements(GL_TRIANGLES, chunk->cutoutRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
-		}
-		
-		// 4. Model pass
-		
-		texShader.use();
-		texShader.setMat4f("model", glm::value_ptr(model));
-		texShader.setMat4f("view", glm::value_ptr(view));
-		texShader.setMat4f("proj", glm::value_ptr(proj));
-		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
-			for(auto& [bidx, renderobj]: chunk->modelRenderObjs){
-				renderobj.Render();
-			}
-		}
-		for(auto& animal: Animal::allAnimals){
-			if(glm::length(animal->position - Camera::MainCamera.position) < Animal::RENDER_DIST){
-				animal->Update(deltaTime);
-				texShader.setMat4f("model", glm::value_ptr(animal->ComputeModelMatrix()));
-				animal->renderobj.Render();
-			}
-		}
 		//-------- Weather particles
 		weatherShader.use();
 		weatherShader.setMat4f("modelview", glm::value_ptr(view));
