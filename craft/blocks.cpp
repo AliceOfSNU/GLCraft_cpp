@@ -180,6 +180,15 @@ bool BlockDB::isWalkThrough(BlockType blkTy) {
 	return blockData.walkThrough;
 }
 
+bool BlockDB::isTorchBlock(BlockType blkTy){
+	if(blkTy == BlockType::BLOCK_TORCH || 
+		blkTy == BlockType::BLOCK_TORCH_R0 || 
+		blkTy == BlockType::BLOCK_TORCH_R90 ||
+		blkTy == BlockType::BLOCK_TORCH_R180 ||
+		blkTy == BlockType::BLOCK_TORCH_R270 ) return true;
+	return false;
+}
+
 BlockMeshData& BlockDB::GetMeshData(MeshType ty) {
 	switch (ty) {
 	case MeshType::CUBE:

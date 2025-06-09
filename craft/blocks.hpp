@@ -64,6 +64,7 @@ public:
 	bool isSolidCube(BlockType ty);
 	bool isWalkThrough(BlockType ty);
 	bool isTransparentBlock(BlockType ty);
+	bool isTorchBlock(BlockType blkTy);
 	BlockMeshData& GetMeshData(MeshType ty);
 	BlockType ReplaceBlockTypeByFace(BlockType ty, int face);
 private:

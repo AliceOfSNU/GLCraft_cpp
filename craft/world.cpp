@@ -195,8 +195,17 @@ void Chunk::Build() {
 						cutoutRenderObj.PlaceBlockFaceData(grid[i][j][k], pos, f, 15, 0);
 					}
 					break;
+				case BlockDB::RenderType::PLACEABLES:
+					if(modelRenderObjs.count({i, j, k}) == 0){
+						modelRenderObjs[{i, j, k}] = ModelRenderObject();
+						glm::vec3 pos{ basepos.x + i, basepos.y + j, basepos.z + k };
+						auto model = BlockDB::GetInstance().modelzoo[blkTy];
+						modelRenderObjs[{i, j, k}].LoadModel(model, pos);
+						modelRenderObjs[{i, j, k}].Build();
+					}
+					break;
 				}
-				
+					
 			}
 		}
 	}
@@ -237,7 +246,7 @@ void ComputeTorchLight(Chunk::ivec3 cidx){
 				for(int i = 0; i < Chunk::SZ; ++i){
 					for(int j = 0; j < Chunk::HEIGHT; ++j){
 						for(int k = 0; k < Chunk::SZ; ++k){
-							if(chk->grid[i][j][k] == BlockDB::BlockType::BLOCK_TORCH){
+							if(BlockDB::GetInstance().isTorchBlock(chk->grid[i][j][k])){
 								chk->torchlight[i][j][k] = 10;
 								q.push({ncidx, {i, j, k}});
 							}
@@ -280,7 +289,7 @@ void ComputeTorchLight(Chunk::ivec3 cidx){
 void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
 
 	// for placables, just delete the associated render object.
-	if(grid[bidx.x][bidx.y][bidx.z] == BlockType::BLOCK_TORCH){
+	if(BlockDB::GetInstance().isTorchBlock(grid[bidx.x][bidx.y][bidx.z])){
 		modelRenderObjs[{bidx.x, bidx.y, bidx.z}].DeleteBuffers();
 		modelRenderObjs.erase({bidx.x, bidx.y, bidx.z});
 		grid[bidx.x][bidx.y][bidx.z] = BlockType::BLOCK_AIR;
@@ -868,15 +877,21 @@ Chunk* World::findOrCreateChunk(const p3i& chunkIdx) {
 	worldgen.Generate(chunk);
 
 	allChunks[chunkIdx] = chunk;
-
+	frame_ids[chunkIdx] = numChunks++;
 	return chunk;
 }
 
-World::World(glm::vec3 spawnPoint) {
+World::World(glm::vec3 spawnPoint, std::string fp) {
 	// initialize worldgen
 	worldgen = TerrainGeneration();
 	// create initial chunks around spawn point
 	centerChunkIdx = Chunk::WorldToChunkIndex(spawnPoint);
+	// open persistence file
+	filepath = fp;
+	// this operation will fail if file does not already exist.
+	// in that case, we should create chunks instead of reading from file.
+	fileio.open(filepath, std::ios::binary | std::ios::in | std::ios::out);
+	numChunks = 0;
 }
 
 void World::CreateInitialChunks(glm::vec3 spawnPoint){
@@ -902,6 +917,100 @@ void World::CreateInitialChunks(glm::vec3 spawnPoint){
 					chunk->initialized = true;
 				}
 			}
+		}
+	}
+
+	for (auto& [cidx, chunk] : visChunks) {
+		if (!chunk->isBuilt) chunk->BuildLights();
+	}
+	for (auto& [cidx, chunk] : visChunks) {
+		if (!chunk->isBuilt) chunk->Build();
+	}
+
+}
+
+void World::WriteChunkToFile(Chunk* chunk){
+	p3i cidx = {chunk->chunkIdx.x, chunk->chunkIdx.y, chunk->chunkIdx.z};
+	if(frame_ids.count(cidx) == 0) return;
+	int frame_id = frame_ids[cidx];
+	int offset = sizeof(GameStateHeader) + frame_id * FRAMESIZE;
+	ChunkHeader header;
+	header.basepos[0] = chunk->basepos.x;
+	header.basepos[1] = chunk->basepos.y;
+	header.basepos[2] = chunk->basepos.z;
+	header.chunkIdx[0] = chunk->chunkIdx.x;
+	header.chunkIdx[1] = chunk->chunkIdx.y;
+	header.chunkIdx[2] = chunk->chunkIdx.z;
+	fileio.seekp(offset);
+	fileio.write((char*)&header, sizeof(ChunkHeader));
+	fileio.write((char*)chunk->grid, Chunk::HEIGHT*Chunk::SZ*Chunk::SZ*sizeof(Chunk::BlockType));
+	fileio.write((char*)chunk->blockHeight, Chunk::SZ*Chunk::SZ*sizeof(int));
+	fileio.write((char*)chunk->blockBiome, Chunk::SZ*Chunk::SZ*sizeof(BiomeType));
+	fileio.write((char*)chunk->terrainProperties, Chunk::SZ*Chunk::SZ*sizeof(int));
+}
+
+void World::LoadChunkFromFile(Chunk* chunk, int frame_id){
+	int offset = sizeof(GameStateHeader) + frame_id * FRAMESIZE;
+	ChunkHeader header;
+	fileio.seekg(offset);
+	fileio.read((char*)&header, sizeof(ChunkHeader));
+	fileio.read((char*)chunk->grid, Chunk::HEIGHT*Chunk::SZ*Chunk::SZ*sizeof(Chunk::BlockType));
+	fileio.read((char*)chunk->blockHeight, Chunk::SZ*Chunk::SZ*sizeof(int));
+	fileio.read((char*)chunk->blockBiome, Chunk::SZ*Chunk::SZ*sizeof(BiomeType));
+	fileio.read((char*)chunk->terrainProperties, Chunk::SZ*Chunk::SZ*sizeof(int));
+	chunk->basepos.x = header.basepos[0];
+	chunk->basepos.y = header.basepos[1];
+	chunk->basepos.z = header.basepos[2];
+	chunk->chunkIdx.x = header.chunkIdx[0];
+	chunk->chunkIdx.y = header.chunkIdx[1];
+	chunk->chunkIdx.z = header.chunkIdx[2];
+}
+
+void World::SaveGameState(glm::vec3& playerPosition){
+	// if game file does not already exist, hence not opened already,
+	// create using trunc flag
+	if(!fileio.is_open()){
+		fileio.open(filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
+	}
+	// write file header
+	GameStateHeader header;
+	fileio.seekp(0);
+	header.playerPosition[0] = playerPosition.x;
+	header.playerPosition[1] = playerPosition.y;
+	header.playerPosition[2] = playerPosition.z;
+	header.numChunks = numChunks;
+	fileio.write((char*)&header, sizeof(GameStateHeader));
+
+	// write all chunks to file.
+	for(auto& [cidx, chunk]: allChunks){
+		WriteChunkToFile(chunk);
+	}
+}
+
+void World::LoadGameState(glm::vec3& playerPosition){
+	std::cout << "loading game state" << std::endl;
+	GameStateHeader header;
+	fileio.seekg(0);
+	fileio.read((char*)&header, sizeof(GameStateHeader));
+	playerPosition.x = header.playerPosition[0];
+	playerPosition.y = header.playerPosition[1];
+	playerPosition.z = header.playerPosition[2];
+	centerChunkIdx = Chunk::WorldToChunkIndex(playerPosition);
+
+	for(int n = 0; n < header.numChunks; ++n){
+		Chunk* chunk = new Chunk();
+		LoadChunkFromFile(chunk, n);
+		p3i cidx = {chunk->chunkIdx.x, chunk->chunkIdx.y, chunk->chunkIdx.z};
+		frame_ids[cidx] = n;
+		allChunks[cidx] = chunk;
+		numChunks++;
+		if(chunk->chunkIdx.x >= centerChunkIdx.x - HVIS_WORLD_SZ &&
+			chunk->chunkIdx.x <= centerChunkIdx.x + HVIS_WORLD_SZ &&
+			chunk->chunkIdx.y >= centerChunkIdx.y - HVIS_WORLD_SZ &&
+			chunk->chunkIdx.y <= centerChunkIdx.y + HVIS_WORLD_SZ &&
+			chunk->chunkIdx.z >= centerChunkIdx.z - HVIS_WORLD_SZ &&
+			chunk->chunkIdx.z <= centerChunkIdx.z + HVIS_WORLD_SZ){
+				visChunks[cidx] = chunk;
 		}
 	}
 
@@ -969,7 +1078,7 @@ void World::UpdateChunks(glm::vec3& playerPosition) {
 				chunk->isBuilt = false;
 				chunk->solidRenderObj.DeleteBuffers();
 				chunk->cutoutRenderObj.DeleteBuffers();
-
+				chunk->waterRenderObj.DeleteBuffers();
 				to_remove.push_back(cidx);
 			}
 		}

@@ -24,6 +24,7 @@
 #include "rendering.hpp"
 #include "blocks.hpp"
 #include "plants.hpp"
+#include "persistence.h"
 
 using pii = std::pair<int, int>;
 using pff = std::pair<float, float>;
@@ -228,11 +229,20 @@ public:
 	std::map<p3i, Chunk*> visChunks;
 	TerrainGeneration worldgen;
 	glm::ivec3 centerChunkIdx{ 0,0,0 };
-
+	std::fstream fileio;
+	std::filesystem::path filepath;
+	std::map<p3i, int> frame_ids;
+	const static int FRAMESIZE = sizeof(ChunkHeader) + 
+		Chunk::HEIGHT*Chunk::SZ*Chunk::SZ*sizeof(Chunk::BlockType) +
+		Chunk::SZ*Chunk::SZ*sizeof(int) +
+		Chunk::SZ*Chunk::SZ*sizeof(BiomeType) +
+		Chunk::SZ*Chunk::SZ*sizeof(int);
+	int numChunks;
+	
 	static constexpr int VIS_WORLD_SZ = 7, HVIS_WORLD_SZ = 3, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
 
 	static World& GetInstance() {
-		static World instance = World({0.0f, 1.0f, 0.0f});
+		static World instance = World({0.0f, 1.0f, 0.0f}, "./world_img");
 		return instance;
 	}
 
@@ -241,10 +251,14 @@ public:
 	Chunk* GetChunkByIndex(const glm::ivec3& idx);
 	Chunk* GetChunkContainingBlock(const glm::ivec3& worldIdx);
 	void UpdateChunks(glm::vec3& playerPosition);
+	void SaveGameState(glm::vec3& playerPosition);
+	void LoadGameState(glm::vec3& playerPosition);
+	void WriteChunkToFile(Chunk* chunk);
+	void LoadChunkFromFile(Chunk* chunk, int frame_id);
 	void Build();
 
 private:
-	World(glm::vec3 centerPoint);
+	World(glm::vec3 centerPoint, std::string fpath);
 	World(World const& other) = delete;
 	World& operator=(World const& other) = delete;
 	Chunk* findOrCreateChunk(const p3i& chunkIdx);

@@ -105,7 +105,11 @@ int main() {
 
 	// initialize objects
 	FacesSelection selectedFaces;
-	World::GetInstance().CreateInitialChunks(Camera::MainCamera.position);
+	if(World::GetInstance().fileio.is_open()){
+		World::GetInstance().LoadGameState(Camera::MainCamera.position);
+	}else{
+		World::GetInstance().CreateInitialChunks(Camera::MainCamera.position);
+	}
 	CircleFill circleUI(70.f);
 	WeatherParticleRenderObj rainRenderObj(60.0f, 100.0f, 3000);
 	//create gl texture
@@ -521,8 +525,10 @@ bool raycastEntities(){
 
 void processInput(GLFWwindow* window)
 {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
+		World::GetInstance().SaveGameState(Camera::MainCamera.position);
 		glfwSetWindowShouldClose(window, true);
+	}
 
 	// TODO : make camera movable (WASD) & increase or decrease dayFactor(press O: increase, press P: decrease)
 	const float cameraSpeed = 0.05f;

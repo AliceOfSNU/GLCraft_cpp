@@ -17,6 +17,7 @@ entities.h
 debug.h
 weather.h
 animals.h
+persistence.h
 )
 
 SET(TARGET_SRC
