@@ -140,11 +140,22 @@ public:
 	using ToolType = Tool::ToolType;
 	static BlockDB::BlockType selectedBlkTy; //persists which block type is selected, when ui is closed
 	static int selected;
+	static int page;
+	inline const static int NUM_PAGES = 2;
 	static const std::vector<BlockType> btnToBlkTy;
 	static const std::vector<ToolType> btnToToolTy;
 	static const std::vector<int> btnToImgIdx;
 	Inventory();
 	void Select(int num);
+	void MovePage(int deltaPage);
+	void MakePage(int pagenum);
+
+	inline static const float INVEN_CENTER_X = 400.f;
+	inline static const float INVEN_CENTER_Y = 400.f;
+	inline static const float INVEN_WIDTH = 420.f;
+	inline static const float INVEN_HEIGHT = 200.f; 
+	inline static const int ITEMS_PER_PAGE = 15;
+	inline static const int MAX_ITEMS = 17;
 };
 
 class InventoryButton: public Button{
@@ -163,4 +174,12 @@ public:
 	InvenBtnImg(int imgidx);
 	virtual void Build() override;
 };
+
+class InventoryPageButton: public Button{
+public:
+	int dpage = 0;
+	InventoryPageButton(int dp);
+	virtual void OnClick() override;
+};
+
 #endif

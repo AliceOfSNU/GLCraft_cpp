@@ -25,6 +25,7 @@ public:
     virtual void Trigger() = 0;
     virtual void Stop() = 0;
     virtual void Update(float deltaTime) = 0;
+    static float ResolveMineTime(BlockDB::BlockType blkTy);
     static ItemType ResolveDrop(BlockDB::BlockType blkTy);
     virtual glm::mat4 ComputeModelMatrix();
     virtual ~Tool();

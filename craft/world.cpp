@@ -424,7 +424,7 @@ void Chunk::PlaceBlockAtCompileTime(const ivec3& blockIdx, const BlockDB::BlockT
 	grid[bidx.x][bidx.y][bidx.z] = blkTy;
 	auto& blockData = BlockDB::GetInstance().tbl[blkTy];
 	
-	if(blockData.meshType == BlockDB::MeshType::SHAPED){
+	if(blockData.renderType == BlockDB::RenderType::PLACEABLES){
 		// if it's a placable, just place a new renderobj with the block's model
 		modelRenderObjs[{bidx.x, bidx.y, bidx.z}] = ModelRenderObject();
 		glm::vec3 pos{ basepos.x + bidx.x, basepos.y + bidx.y, basepos.z + bidx.z };

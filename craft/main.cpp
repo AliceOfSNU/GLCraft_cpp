@@ -56,7 +56,8 @@ public:
 	double startTime;
 	double setTime;
 	bool running;
-	double Start() {
+	double Start(double t) {
+		setTime = t;
 		startTime = glfwGetTime();
 		running = true;
 		return startTime;
@@ -176,7 +177,7 @@ int main() {
 				if (blockDestructionTimer.running) blockDestructionTimer.Stop();
 				if(Tool::equippedTool) Tool::equippedTool->Stop();
 			}
-			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
+			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > blockDestructionTimer.setTime) {
 				// timer expires, destroy block
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
@@ -189,7 +190,7 @@ int main() {
 						PickupItem::allPickups.insert(std::make_shared<PickupItem>((int)itemTy, pos));
 					}
 				}
-				blockDestructionTimer.Start();
+				//blockDestructionTimer.Start();
 			}
 			else if ((!blockDestructionTimer.running && dragTimer.GetTime() > 0.5f) ||
 			(blockDestructionTimer.running && selectedBlockIdx != blockDestructionTimer.blockIdx)){
@@ -198,7 +199,7 @@ int main() {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
 					if (ch->grid[bidx.x][bidx.y][bidx.z]) {
 						blockDestructionTimer.blockIdx = selectedBlockIdx;
-						blockDestructionTimer.Start();
+						blockDestructionTimer.Start(Tool::ResolveMineTime(ch->grid[bidx.x][bidx.y][bidx.z]));
 						if(Tool::equippedTool) Tool::equippedTool->Trigger();
 					}
 				}
@@ -206,7 +207,7 @@ int main() {
 		}
 		if (GUIManager::GetInstance().mouseEvent == 1) {
 			std::cout << selectedBlockIdx.x << "," << selectedBlockIdx.y << "," << selectedBlockIdx.z << '\n';
-			dragTimer.Start();
+			dragTimer.Start(0.0f);
 			//entity raycasting
 			hitEntityExists = raycastEntities();
 		} else if(GUIManager::GetInstance().mouseEvent == 2){
@@ -366,7 +367,7 @@ int main() {
 
 		//-------- UI
 		if (mouseHeld && blockDestructionTimer.running) {
-			circleUI.Render(blockDestructionTimer.GetTime() / BlockDestructionTimer::DURATION, mouseX, mouseY);
+			circleUI.Render(blockDestructionTimer.GetTime() / blockDestructionTimer.setTime, mouseX, mouseY);
 		}
 		
 		for (auto& [idx, window] : GUIManager::GetInstance().windows) {

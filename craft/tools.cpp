@@ -18,6 +18,52 @@ Tool::~Tool(){
     //unimplemented
 }
 
+float Tool::ResolveMineTime(BlockDB::BlockType blkTy){
+    BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
+    MineType mineTy = row.mineTy;
+    float mineTime = 1000000.f;
+    switch (mineTy)
+    {
+    case MineType::WOODEN:
+        mineTime = 2.0f;
+        if(equippedTool){ // TODO: should check if pickaxe!
+            if(equippedTool->grade == ToolGrade::STONE) mineTime = 1.0f;
+            else if(equippedTool->grade == ToolGrade::IRON) mineTime = 1.0f;
+            else if(equippedTool->grade == ToolGrade::DIAMOND) mineTime = 1.0f;
+        }
+        break;
+    case MineType::STONE:
+        mineTime = 5.0f;
+        if(equippedTool){ // TODO: should check if pickaxe!
+            if(equippedTool->grade == ToolGrade::STONE) mineTime = 2.5f;
+            else if(equippedTool->grade == ToolGrade::IRON) mineTime = 1.5f;
+            else if(equippedTool->grade == ToolGrade::DIAMOND) mineTime = 1.0f;
+        }
+        break;
+    case MineType::FAST:
+        mineTime = 0.5f;
+        break;
+    case MineType::METAL:
+        mineTime = 7.0f;
+        if(equippedTool){ // TODO: should check if pickaxe!
+            if(equippedTool->grade == ToolGrade::STONE) mineTime = 4.0f;
+            else if(equippedTool->grade == ToolGrade::IRON) mineTime = 3.0f;
+            else if(equippedTool->grade == ToolGrade::DIAMOND) mineTime = 1.5f;
+        }
+        break;
+    case MineType::DIAMOND:
+        mineTime = 10.f;
+        if(equippedTool){ // TODO: should check if pickaxe!
+            if(equippedTool->grade == ToolGrade::STONE) mineTime = 6.0f;
+            else if(equippedTool->grade == ToolGrade::IRON) mineTime = 4.0f;
+            else if(equippedTool->grade == ToolGrade::DIAMOND) mineTime = 2.0f;
+        }
+    default:
+        break;
+    }
+    return mineTime;
+}
+
 ItemType Tool::ResolveDrop(BlockDB::BlockType blkTy){
     BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
     ItemType itmTy = row.drop;

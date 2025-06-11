@@ -25,6 +25,10 @@ enum class ItemType {
 	STONE_PICKAXE, IRON_PICKAXE, DIAMOND_PICKAXE, NONE
 };
 
+enum class MineType{
+	FAST, WOODEN, STONE, METAL, DIAMOND
+};
+
 class BlockDB {
 public:
 	enum BlockType {
@@ -57,6 +61,7 @@ public:
 		bool blocksLight;
 		bool walkThrough;
 		ItemType drop;
+		MineType mineTy;
 		int numFaces() {
 			return faceTextures.size();
 		}

@@ -148,7 +148,9 @@ void Panel::Build() {
 }
 
 void Panel::Render() {
-	for (auto& child : children) child->Render();
+	for (auto& child : children) {
+		child->Render();
+	}
 	renderObj->Render();
 }
 
@@ -183,10 +185,14 @@ void Button::Update() {
 // there are empty slots at the end, which we repeat 16 for now
 
 const std::vector<int> Inventory::btnToImgIdx = { 
+	//page 1
 	(int)ItemType::DIRT, (int)ItemType::GRASS, (int)ItemType::GRANITE, (int)ItemType::WOOD, (int)ItemType::COBBLESTONE, 
 	(int)ItemType::WOODEN_STAIR_P0, (int)ItemType::COBBLESTONE_STAIR_P0, (int)ItemType::TORCH, (int)ItemType::COAL_ORE, (int)ItemType::IRON_ORE, 
 	(int)ItemType::DIAMOND_ORE, (int)ItemType::STONE_PICKAXE, (int)ItemType::IRON_PICKAXE, (int)ItemType::DIAMOND_PICKAXE, (int)ItemType::DIAMOND_PICKAXE, 
-	(int)ItemType::DIAMOND_PICKAXE
+	//page 2
+	(int)ItemType::DIAMOND_PICKAXE, (int)ItemType::DIAMOND_PICKAXE,
+	// end(do we need this?)
+	(int)ItemType::DIAMOND_PICKAXE,
 };
 
 InventoryButton::InventoryButton(int idx, float cx, float cy, float w, float h): itemidx(idx){
@@ -195,12 +201,14 @@ InventoryButton::InventoryButton(int idx, float cx, float cy, float w, float h):
 	this->width = w;
 	this->height = h;
 	renderObj = std::make_unique<SolidGUIRenderObject>(glm::vec3(0.1f, 0.1f, 0.1f));
-	std::shared_ptr<InvenBtnImg> image = std::make_shared<InvenBtnImg>(Inventory::btnToImgIdx[idx]);
-	image->centerX = this->centerX;
-	image->centerY = this->centerY;
-	image->width = this->width * 0.8f;
-	image->height = this->height * 0.8f;
-	children.push_back(std::move(image));
+	if(idx < Inventory::MAX_ITEMS){
+		std::shared_ptr<InvenBtnImg> image = std::make_shared<InvenBtnImg>(Inventory::btnToImgIdx[idx]);
+		image->centerX = this->centerX;
+		image->centerY = this->centerY;
+		image->width = this->width * 0.8f;
+		image->height = this->height * 0.8f;
+		children.push_back(std::move(image));
+	}
 }
 
 void InventoryButton::OnClick(){
@@ -222,23 +230,23 @@ void InventoryButton::OnMouseExit(){
 	if(itemidx != inven->selected) solidRend->fillcolor = { 0.1f, 0.1f, 0.1f };
 }
 
+InventoryPageButton::InventoryPageButton(int dp): dpage(dp){
+	renderObj = std::make_unique<SolidGUIRenderObject>(glm::vec3(0.2f, 0.2f, 0.2f));
+}
+
+void InventoryPageButton::OnClick(){
+	auto inven = dynamic_cast<Inventory*>(GUIManager::GetInstance().windows["inventory"].get());
+	inven->MovePage(dpage);
+}
+
 Inventory::Inventory(){
-	centerX = 400.f;
-	centerY = 400.f;
-	width = 400.f;
-	height = 200.f;
+	centerX = INVEN_CENTER_X;
+	centerY = INVEN_CENTER_Y;
+	width = INVEN_WIDTH;
+	height = INVEN_HEIGHT;
 	renderObj = std::make_unique<SolidGUIRenderObject>(glm::vec3{0.3f, 0.3f, 0.3f});
-	for (int i = 0; i < 3; ++i) {
-		for (int j = 0; j < 5; ++j) {
-			float centerX = 400.f - (60.f * 2) + j * 60.f;
-			float width = 50.f;
-			float centerY = 400.f + (60.f * 1) - i * 60.f;
-			float height = 50.f;
-			std::shared_ptr<InventoryButton> item = std::make_shared<InventoryButton>(5*i+j, centerX, centerY, width, height);
-			item->id = "inventory_" + std::to_string(5 * i + j);
-			children.push_back(std::move(item));
-		}
-	}
+	MakePage(0);
+
 	auto btn = dynamic_cast<Button*>(children[selected].get());
 	auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn->renderObj.get());
 	solidRend->fillcolor = { 0.0f, 1.0f, 1.0f };
@@ -254,18 +262,24 @@ const std::vector<BlockDB::BlockType> Inventory::btnToBlkTy = {
 };
 
 const std::vector<Tool::ToolType> Inventory::btnToToolTy = {
-	ToolType::TOOL_STONE_PICKAXE, ToolType::TOOL_IRON_PICKAXE, ToolType::TOOL_DIAMOND_PICKAXE,
+	ToolType::TOOL_STONE_PICKAXE, ToolType::TOOL_IRON_PICKAXE, ToolType::TOOL_DIAMOND_PICKAXE, ToolType::TOOL_DIAMOND_PICKAXE, 
+	//page 2
+	ToolType::TOOL_DIAMOND_PICKAXE, ToolType::TOOL_DIAMOND_PICKAXE,
 };
 
 int Inventory::selected = 0;
+int Inventory::page = 0;
 BlockDB::BlockType Inventory::selectedBlkTy = Inventory::btnToBlkTy[0];
 
 void Inventory::Select(int num) {
-	auto btn = dynamic_cast<Button*>(children[selected].get());
+	if(num >= MAX_ITEMS) return;
+	auto btn = dynamic_cast<Button*>(children[selected%ITEMS_PER_PAGE].get());
 	auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn->renderObj.get());
 	solidRend->fillcolor = { 0.1f, 0.1f, 0.1f };
 	
+	// update selected field with the newly selected index
 	selected = num;
+
 	if(selected < btnToBlkTy.size()){
 		Tool::UnequipTool();
 		selectedBlkTy = btnToBlkTy[selected];
@@ -274,10 +288,62 @@ void Inventory::Select(int num) {
 		int toolnum = selected - btnToBlkTy.size();
 		Tool::EquipTool(btnToToolTy[toolnum]);
 		selectedBlkTy = BlockDB::BLOCK_COUNT;
-	}	
-	btn = dynamic_cast<Button*>(children[selected].get());
+	}
+
+	btn = dynamic_cast<Button*>(children[selected%ITEMS_PER_PAGE].get());
 	solidRend = dynamic_cast<SolidGUIRenderObject*>(btn->renderObj.get());
 	solidRend->fillcolor = { 0.0f, 1.0f, 1.0f };
+}
+
+void Inventory::MakePage(int page){
+	for (int i = 0; i < 3; ++i) {
+		for (int j = 0; j < 5; ++j) {
+			float centerX = INVEN_CENTER_X - (60.f * 2) + j * 60.f;
+			float width = 50.f;
+			float centerY = INVEN_CENTER_Y + (60.f * 1) - i * 60.f;
+			float height = 50.f;
+			std::shared_ptr<InventoryButton> item = std::make_shared<InventoryButton>(page*ITEMS_PER_PAGE + 5*i+j, centerX, centerY, width, height);
+			item->id = "inventory_" + std::to_string(page*ITEMS_PER_PAGE + 5 * i + j);
+			children.push_back(std::move(item));
+		}
+	}
+
+	// make page buttons
+	if(page > 0){
+		std::shared_ptr<InventoryPageButton> prvBtn = std::make_shared<InventoryPageButton>(-1);
+		prvBtn->centerX = INVEN_CENTER_X - INVEN_WIDTH/2 + 10.f + 15.f;
+		prvBtn->width = 30.f;
+		prvBtn->centerY = centerY;
+		prvBtn->height = 50.f;
+		prvBtn->id = "inventory_prv";
+		children.push_back(std::move(prvBtn));
+	}
+
+	if(page < NUM_PAGES - 1){		
+		std::shared_ptr<InventoryPageButton> nxtBtn = std::make_shared<InventoryPageButton>(1);
+		nxtBtn->centerX = INVEN_CENTER_X + INVEN_WIDTH/2 - 10.f - 15.f;
+		nxtBtn->width = 30.f;
+		nxtBtn->centerY = centerY;
+		nxtBtn->height = 50.f;
+		nxtBtn->id = "inventory_nxt";
+		children.push_back(std::move(nxtBtn));
+	}
+
+}
+
+void Inventory::MovePage(int dpage){
+	int newpage = page + dpage;
+	if(newpage < 0 || newpage >= NUM_PAGES) return;
+	
+	page = newpage;
+	// first destroy all existing buttons, and even inventory panel itself!
+	// this is needed to make sure VAOs and VBOs are deleted
+	Destroy();
+	children.clear();
+	MakePage(newpage);
+	// all children must be rebuilt
+	isBuilt = false;
+	Build();
 }
 
 InvenBtnImg::InvenBtnImg(int idx): imgidx(idx){
