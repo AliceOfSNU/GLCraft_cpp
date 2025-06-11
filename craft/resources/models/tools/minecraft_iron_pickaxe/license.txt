@@ -1,0 +1,11 @@
+Model Information:
+* title:	Minecraft Iron Pickaxe
+* source:	https://sketchfab.com/3d-models/minecraft-iron-pickaxe-77d7cb92ee1742f8a45558bd85f29694
+* author:	COVE989 (https://sketchfab.com/cove989)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Minecraft Iron Pickaxe" (https://sketchfab.com/3d-models/minecraft-iron-pickaxe-77d7cb92ee1742f8a45558bd85f29694) by COVE989 (https://sketchfab.com/cove989) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

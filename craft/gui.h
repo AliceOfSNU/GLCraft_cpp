@@ -3,6 +3,7 @@
 #define GUI_H
 #include "rendering.hpp"
 #include "GLObjects.h"
+#include "tools.hpp"
 #include <iostream>
 #include <map>
 #include <string>
@@ -136,9 +137,12 @@ protected:
 class Inventory : public Panel {
 public:
 	using BlockType = BlockDB::BlockType;
+	using ToolType = Tool::ToolType;
 	static BlockDB::BlockType selectedBlkTy; //persists which block type is selected, when ui is closed
 	static int selected;
 	static const std::vector<BlockType> btnToBlkTy;
+	static const std::vector<ToolType> btnToToolTy;
+	static const std::vector<int> btnToImgIdx;
 	Inventory();
 	void Select(int num);
 };

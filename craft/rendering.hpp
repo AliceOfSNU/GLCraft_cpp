@@ -53,7 +53,7 @@ public:
     // not vtxdata.size() or idxdata.size()
     // interal storage can actually be empty
 	size_t vtxcnt = 0, idxcnt = 0;
-    bool hasBuffers; 
+    bool hasBuffers = false; 
 
 };
 
@@ -74,6 +74,14 @@ public:
 private:
     std::shared_ptr<ModelWrapper> modelref;
     std::vector<MeshRenderObject> meshRenderObjs;
+};
+
+class PickupItemRenderObject: public RenderObject{
+public:
+    void Render();
+    void DeleteBuffers();
+    void Build();
+    int imgidx;
 };
 
     

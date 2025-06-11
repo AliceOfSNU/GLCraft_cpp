@@ -18,6 +18,8 @@ debug.h
 weather.h
 animals.h
 persistence.h
+pickables.h
+tools.hpp
 )
 
 SET(TARGET_SRC
@@ -34,6 +36,8 @@ debug.cpp
 weather.cpp
 model_utils.cpp
 animals.cpp
+pickables.cpp
+tools.cpp
 )
 add_executable(GLcraft ${TARGET_SRC} main.cpp )
 add_subdirectory(generation)

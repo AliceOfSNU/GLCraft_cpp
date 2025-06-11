@@ -18,6 +18,7 @@
 #include "rendering.hpp"
 #include "weather.h"
 #include "animals.h"
+#include "pickables.h"
 using namespace std;
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -113,14 +114,16 @@ int main() {
 	CircleFill circleUI(70.f);
 	WeatherParticleRenderObj rainRenderObj(60.0f, 100.0f, 3000);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 20, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 23, GL_RGBA);
+	TextureArray2D thumbnails_tex = TextureArray2D("resources/thumbnails.png", 64, 64, 17, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
 
 	Shader shader = Shader("resources/basic.vs", "resources/basic.fs");
 	Shader cutoutShader = Shader("resources/basic.vs", "resources/cutout.fs");
-	Shader weatherShader = Shader("resources/billboard.vs", "resources/cutout_basic.fs");
+	Shader billboardShader = Shader("resources/billboard.vs", "resources/cutout.fs");
+	Shader weatherShader = Shader("resources/particle.vs", "resources/cutout_basic.fs");
 	Shader solidColorShader = Shader("resources/solidcolor.vs", "resources/solidcolor.fs");
 	Shader waterShader = Shader("resources/wave.vs", "resources/wave.fs");
 	Shader texShader = Shader("resources/texture.vs", "resources/texture.fs");
@@ -169,15 +172,22 @@ int main() {
 		//block destruction
 		if (mouseHeld) {
 			//block destruction and placement
-			if (!selectedBlockExists) {
+			if (!selectedBlockExists) { // cursor no longer targeting
 				if (blockDestructionTimer.running) blockDestructionTimer.Stop();
+				if(Tool::equippedTool) Tool::equippedTool->Stop();
 			}
 			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
-				//DestroyBlock(blockDestructionTimer.blockIdx);
+				// timer expires, destroy block
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
-					ch->DestroyBlockAt(bidx);
+					BlockDB::BlockType blkTy = ch->DestroyBlockAt(bidx);
+					glm::vec3 pos = {ch->basepos.x + bidx.x, ch->basepos.y + bidx.y, ch->basepos.z + bidx.z};
+					BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
+					if(row.drop != ItemType::NONE) {
+						ItemType itemTy = Tool::ResolveDrop(blkTy);
+						PickupItem::allPickups.insert(std::make_shared<PickupItem>((int)itemTy, pos));
+					}
 				}
 				blockDestructionTimer.Start();
 			}
@@ -189,6 +199,7 @@ int main() {
 					if (ch->grid[bidx.x][bidx.y][bidx.z]) {
 						blockDestructionTimer.blockIdx = selectedBlockIdx;
 						blockDestructionTimer.Start();
+						if(Tool::equippedTool) Tool::equippedTool->Trigger();
 					}
 				}
 			}
@@ -201,7 +212,9 @@ int main() {
 		} else if(GUIManager::GetInstance().mouseEvent == 2){
 			dragTimer.Stop();
 			glm::vec2 drag = GUIManager::GetInstance().mouseDrag;
-			if(!hitEntityExists && !blockDestructionTimer.running && selectedBlockExists && (drag.x*drag.x + drag.y*drag.y) < 16.0f){
+			if(!hitEntityExists && !blockDestructionTimer.running && selectedBlockExists 
+				&& (drag.x*drag.x + drag.y*drag.y) < 16.0f
+				&& Inventory::selectedBlkTy != BlockDB::BlockType::BLOCK_COUNT){
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
@@ -214,6 +227,7 @@ int main() {
 				}
 			}
 			blockDestructionTimer.Stop();
+			if(Tool::equippedTool) Tool::equippedTool->Stop();
 			hitEntityExists = false;
 		}
 
@@ -257,12 +271,33 @@ int main() {
 		cutoutShader.setMat4f("view", glm::value_ptr(view));
 		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
 		cutoutShader.setFloat("daylight_value", 0.7f);
-
+		
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
 			chunk->cutoutRenderObj.vao.Bind();
 			glDrawElements(GL_TRIANGLES, chunk->cutoutRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
+		// 3.5 Pickable Pass
+		billboardShader.use();
+		glm::mat4 modelview = view * model;
+
+		billboardShader.setMat4f("modelview", glm::value_ptr(modelview));
+		billboardShader.setMat4f("proj", glm::value_ptr(proj));
+		billboardShader.setFloat("daylight_value", 0.7f);
+		thumbnails_tex.Bind();
+		for(auto& pickup: PickupItem::allPickups){
+			pickup->Update(deltaTime);
+			modelview = view * pickup->ComputeModelMatrix();
+			for(int i = 0; i < 3; ++i){
+				for(int j = 0; j < 3; ++j){
+					if(i == j) modelview[i][j] = 1.0;
+					else modelview[i][j] = 0.0;
+				}
+			}
+			billboardShader.setMat4f("modelview", glm::value_ptr(modelview));
+			pickup->renderobj.Render();
+		}
+		arr_tex.Bind(); //return to default array
 		
 		// 3. Model pass
 		texShader.use();
@@ -287,7 +322,14 @@ int main() {
 				animal->renderobj.Render();
 			}
 		}
-		
+		if(Tool::equippedTool){
+			Tool::equippedTool->Update(deltaTime);
+			auto identity = glm::mat4(1.0f);
+			texShader.setMat4f("view", glm::value_ptr(identity));
+			texShader.setMat4f("model", glm::value_ptr(Tool::equippedTool->ComputeModelMatrix()));
+			Tool::equippedTool->renderobj.Render();
+		}
+
 		// 4. Water pass
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  

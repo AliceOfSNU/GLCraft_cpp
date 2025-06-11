@@ -103,7 +103,7 @@ public:
 	void BuildLights();
 	
 	//manipulation
-	void DestroyBlockAt(const ivec3& bidx);
+	BlockType DestroyBlockAt(const ivec3& bidx);
 	void PlaceBlockAtCompileTime(const ivec3& bidx, const BlockDB::BlockType blkTy);
 	void PlaceBlockAt(const ivec3& bidx, const BlockDB::BlockType blkTy);
 	
@@ -250,6 +250,8 @@ public:
 	Chunk* CurrentChunk(const glm::vec3& position); //Pointer to current chunk.
 	Chunk* GetChunkByIndex(const glm::ivec3& idx);
 	Chunk* GetChunkContainingBlock(const glm::ivec3& worldIdx);
+	bool IsOccupied(const glm::vec3& worldpos, bool ignore_walkthrough); // is position occupied by a block?
+
 	void UpdateChunks(glm::vec3& playerPosition);
 	void SaveGameState(glm::vec3& playerPosition);
 	void LoadGameState(glm::vec3& playerPosition);

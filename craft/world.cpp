@@ -286,9 +286,10 @@ void ComputeTorchLight(Chunk::ivec3 cidx){
 	}
 }
 
-void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
+BlockDB::BlockType Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
 
 	// for placables, just delete the associated render object.
+	BlockType blkTy = grid[bidx.x][bidx.y][bidx.z];
 	if(BlockDB::GetInstance().isTorchBlock(grid[bidx.x][bidx.y][bidx.z])){
 		modelRenderObjs[{bidx.x, bidx.y, bidx.z}].DeleteBuffers();
 		modelRenderObjs.erase({bidx.x, bidx.y, bidx.z});
@@ -322,7 +323,7 @@ void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
 			if(jn_chk) jn_chk->requiresRebuild = true;
 		}
 		requiresRebuild = true; // of course need to rebuild this block as well.
-		return;
+		return blkTy;
 	}
 	
 	// deleting a block makes it air!
@@ -353,6 +354,7 @@ void Chunk::DestroyBlockAt(const Chunk::ivec3& bidx) {
 	}
 
 	ComputeTorchLight(chunkIdx);
+	return blkTy;
 }
 
 bool Chunk::TestAABB(vec3 worldpos) {
@@ -1025,7 +1027,8 @@ void World::LoadGameState(glm::vec3& playerPosition){
 
 Chunk* World::CurrentChunk(const glm::vec3& position) {
 	glm::ivec3 currChunkIdx = Chunk::WorldToChunkIndex(position);
-	return visChunks[{currChunkIdx.x, currChunkIdx.y, currChunkIdx.z}];
+	if(allChunks.count({currChunkIdx.x, currChunkIdx.y, currChunkIdx.z}) == 0) return nullptr;
+	return allChunks[{currChunkIdx.x, currChunkIdx.y, currChunkIdx.z}];
 }
 
 Chunk* World::GetChunkByIndex(const glm::ivec3& idx) {
@@ -1043,6 +1046,17 @@ Chunk* World::GetChunkContainingBlock(const glm::ivec3& worldpos) {
 	if (allChunks.count({cx, cy, cz})) return allChunks[{cx, cy, cz}];
 	else return nullptr;
 }
+
+bool World::IsOccupied(const glm::vec3& worldpos, bool ignore_walkthrough){
+	Chunk* chk = CurrentChunk(worldpos);
+	if(!chk) return false;
+	Chunk::ivec3 bidx = chk->FindBlockIndex(worldpos);
+	BlockDB::BlockType blkTy = chk->grid[bidx.x][bidx.y][bidx.z];
+	if(ignore_walkthrough){
+		return !BlockDB::GetInstance().isWalkThrough(blkTy);
+	}
+	return blkTy != BlockDB::BlockType::BLOCK_AIR;
+};
 
 void World::Build() {
 	//if any visible chunk has modifications,

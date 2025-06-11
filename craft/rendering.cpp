@@ -184,6 +184,58 @@ void MeshRenderObject::DeleteBuffers() {
 	hasBuffers = false;
 }
 
+// PickItem Render Object
+void PickupItemRenderObject::Build(){
+	if(isBuilt) return;
+	if(hasBuffers) return;
+	// we only need these 4 buffers
+	vao.Create();
+	vbo_pos.Create();
+	vbo_uv.Create();
+	hasBuffers = true;
+
+	vtxdata = {
+		-0.25f, 0.25f, 0.0f,
+		-0.25f, -0.25f, 0.0f, 
+		0.25f, -0.25f, 0.0f,
+		-0.25f, 0.25f, 0.0f,
+		0.25f, -0.25f, 0.0f,
+		0.25f, 0.25f, 0.0f,
+	};
+
+	uvdata = {
+		0.0f, 1.0f, (float)imgidx,
+		0.0f, 0.0f, (float)imgidx,
+		1.0f, 0.0f, (float)imgidx,
+		0.0f, 1.0f, (float)imgidx,
+		1.0f, 0.0f, (float)imgidx,
+		1.0f, 1.0f, (float)imgidx
+	};
+	
+	idxcnt = vtxdata.size()/3;
+	vao.Bind();
+	vbo_pos.BufferData(vtxdata.data(), sizeof(vtxdata[0]) * vtxdata.size());
+	vao.LinkAttrib(vbo_pos, 0, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vbo_uv.BufferData(uvdata.data(), sizeof(uvdata[0]) * uvdata.size());
+	vao.LinkAttrib(vbo_uv, 1, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vao.Unbind();
+
+	vtxdata.clear();
+	uvdata.clear();
+
+	isBuilt = true;
+}
+
+void PickupItemRenderObject::Render(){
+	vao.Bind();
+	glDrawArrays(GL_TRIANGLES, 0, idxcnt);
+}
+
+void PickupItemRenderObject::DeleteBuffers(){
+	vao.Delete();
+	vbo_pos.Delete();
+	vbo_uv.Delete();
+}
 // Shader
 
 Shader::Shader(const char* vertexPath, const char* fragmentPath) {

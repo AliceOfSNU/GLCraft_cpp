@@ -176,13 +176,26 @@ void Button::Update() {
 }
 
 // all ui subclass definitions can go here..
+// maps button index in inventory(linear numbering from left top corner..)
+// to image index in the thumbnails atlas.
+// not all images in the thumbnails atlas are shown in the inventory. 
+// usually, only building blocks or tools are shown
+// there are empty slots at the end, which we repeat 16 for now
+
+const std::vector<int> Inventory::btnToImgIdx = { 
+	(int)ItemType::DIRT, (int)ItemType::GRASS, (int)ItemType::GRANITE, (int)ItemType::WOOD, (int)ItemType::COBBLESTONE, 
+	(int)ItemType::WOODEN_STAIR_P0, (int)ItemType::COBBLESTONE_STAIR_P0, (int)ItemType::TORCH, (int)ItemType::COAL_ORE, (int)ItemType::IRON_ORE, 
+	(int)ItemType::DIAMOND_ORE, (int)ItemType::STONE_PICKAXE, (int)ItemType::IRON_PICKAXE, (int)ItemType::DIAMOND_PICKAXE, (int)ItemType::DIAMOND_PICKAXE, 
+	(int)ItemType::DIAMOND_PICKAXE
+};
+
 InventoryButton::InventoryButton(int idx, float cx, float cy, float w, float h): itemidx(idx){
 	this->centerX = cx;
 	this->centerY = cy;
 	this->width = w;
 	this->height = h;
 	renderObj = std::make_unique<SolidGUIRenderObject>(glm::vec3(0.1f, 0.1f, 0.1f));
-	std::shared_ptr<InvenBtnImg> image = std::make_shared<InvenBtnImg>(itemidx);
+	std::shared_ptr<InvenBtnImg> image = std::make_shared<InvenBtnImg>(Inventory::btnToImgIdx[idx]);
 	image->centerX = this->centerX;
 	image->centerY = this->centerY;
 	image->width = this->width * 0.8f;
@@ -236,7 +249,12 @@ Inventory::Inventory(){
 // this is also the order the blocks appear on the inventory, so should be chosen with care.
 const std::vector<BlockDB::BlockType> Inventory::btnToBlkTy = { 
 	BlockType::BLOCK_DIRT, BlockType::BLOCK_GRASS, BlockType::BLOCK_GRANITE, BlockType::BLOCK_WOOD, BlockType::BLOCK_COBBLESTONE,
-	BlockType::BLOCK_WOODEN_STAIR_P0, BlockType::BLOCK_COBBLESTONE_STAIR_P0, BlockType::BLOCK_TORCH
+	BlockType::BLOCK_WOODEN_STAIR_P0, BlockType::BLOCK_COBBLESTONE_STAIR_P0, BlockType::BLOCK_TORCH,
+	BlockType::BLOCK_COAL_ORE, BlockType::BLOCK_IRON_ORE, BlockType::BLOCK_DIAMOND_ORE
+};
+
+const std::vector<Tool::ToolType> Inventory::btnToToolTy = {
+	ToolType::TOOL_STONE_PICKAXE, ToolType::TOOL_IRON_PICKAXE, ToolType::TOOL_DIAMOND_PICKAXE,
 };
 
 int Inventory::selected = 0;
@@ -249,15 +267,21 @@ void Inventory::Select(int num) {
 	
 	selected = num;
 	if(selected < btnToBlkTy.size()){
+		Tool::UnequipTool();
 		selectedBlkTy = btnToBlkTy[selected];
 	}
+	else if(selected - btnToBlkTy.size() < btnToToolTy.size()){
+		int toolnum = selected - btnToBlkTy.size();
+		Tool::EquipTool(btnToToolTy[toolnum]);
+		selectedBlkTy = BlockDB::BLOCK_COUNT;
+	}	
 	btn = dynamic_cast<Button*>(children[selected].get());
 	solidRend = dynamic_cast<SolidGUIRenderObject*>(btn->renderObj.get());
 	solidRend->fillcolor = { 0.0f, 1.0f, 1.0f };
 }
 
 InvenBtnImg::InvenBtnImg(int idx): imgidx(idx){
-	auto image_ref = std::make_shared<TextureArray2D>("resources/thumbnails.png", 64, 64, 8, GL_RGBA);
+	auto image_ref = std::make_shared<TextureArray2D>("resources/thumbnails.png", 64, 64, 17, GL_RGBA);
 	renderObj = std::make_unique<AtlasGUIRenderObject>(image_ref);
 }
 
