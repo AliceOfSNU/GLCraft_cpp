@@ -1,7 +1,9 @@
 #pragma once
 #include <vector>
+#include <algorithm>
+#include <map>
 #include "GLObjects.h"
-
+#include "model_utils.h"
 #define INOUT
 #define OUT
 
@@ -16,24 +18,39 @@ struct BlockMeshData {
 	static BlockMeshData FlowerMesh;
 };
 
+enum class ItemType {
+	DIRT, GRASS, GRANITE, WOOD, COBBLESTONE,
+	WOODEN_STAIR_P0, COBBLESTONE_STAIR_P0, TORCH, 
+	COAL_ORE, IRON_ORE, DIAMOND_ORE, COAL, IRON, DIAMOND, 
+	STONE_PICKAXE, IRON_PICKAXE, DIAMOND_PICKAXE, NONE
+};
+
+enum class MineType{
+	FAST, WOODEN, STONE, METAL, DIAMOND
+};
 
 class BlockDB {
 public:
 	enum BlockType {
-		BLOCK_AIR, BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_POPPY, BLOCK_DANDELION, BLOCK_CYAN_FLOWER, BLOCK_COUNT
+		BLOCK_AIR, BLOCK_GRASS, BLOCK_DIRT, BLOCK_GRANITE, BLOCK_SNOW_SOIL, BLOCK_SAND, BLOCK_WATER, BLOCK_BIRCH_LOG, BLOCK_ELM_LOG, BLOCK_FOILAGE, BLOCK_POPPY, BLOCK_DANDELION, BLOCK_CYAN_FLOWER, 
+		BLOCK_WOODEN_STAIR_P0, BLOCK_WOODEN_STAIR_P90, BLOCK_WOODEN_STAIR_P180, BLOCK_WOODEN_STAIR_P270, 
+		BLOCK_COBBLESTONE_STAIR_P0, BLOCK_COBBLESTONE_STAIR_P90, BLOCK_COBBLESTONE_STAIR_P180, BLOCK_COBBLESTONE_STAIR_P270,
+		BLOCK_TORCH, BLOCK_TORCH_R0, BLOCK_TORCH_R90, BLOCK_TORCH_R180, BLOCK_TORCH_R270, BLOCK_COBBLESTONE, BLOCK_WOOD, BLOCK_WHEAT, BLOCK_SUGARCANE, 
+		BLOCK_COAL_ORE, BLOCK_IRON_ORE, BLOCK_DIAMOND_ORE, BLOCK_COUNT
 	};
+
 
 	//this should be in opposite order
 	enum BlockTextures {
-		DANDELION, POPPY, CYAN_FLOWER, FOILAGE, ELM_SIDE, ELM_TOP, BIRCH_SIDE, BIRCH_TOP, WATER, GRANITE, SNOW, SNOW_SIDE, SAND, GRASS_TOP, GRASS_SIDE, DIRT, NONE
+		DIAMOND_ORE, IRON_ORE, COAL_ORE, SUGARCANE, WHEAT, COBBLESTONE, WOOD, DANDELION, POPPY, CYAN_FLOWER, FOILAGE, ELM_SIDE, ELM_TOP, BIRCH_SIDE, BIRCH_TOP, WATER, GRANITE, SNOW, SNOW_SIDE, SAND, GRASS_TOP, GRASS_SIDE, DIRT, NONE
 	};
 
 	enum RenderType {
-		SOLID, TRANSPARENT, CUTOUT, WATER_RENDER, INVISIBLE
+		SOLID, TRANSPARENT, CUTOUT, WATER_RENDER, SHAPE_SOLID, PLACEABLES, INVISIBLE
 	};
 
 	enum MeshType {
-		CUBE, FLOWER
+		CUBE, FLOWER, SHAPED
 	};
 
 	struct BlockDataRow {
@@ -41,7 +58,10 @@ public:
 		std::vector<BlockTextures> faceTextures;		//which Texture to put on each face
 		RenderType renderType;
 		MeshType meshType;
-
+		bool blocksLight;
+		bool walkThrough;
+		ItemType drop;
+		MineType mineTy;
 		int numFaces() {
 			return faceTextures.size();
 		}
@@ -53,12 +73,18 @@ public:
 	}
 
 	std::vector<BlockDataRow> tbl;
-	bool isSolidCube(BlockType ty);
-	BlockMeshData& GetMeshData(MeshType ty);
+	std::map<BlockType, std::shared_ptr<ModelWrapper>> modelzoo;
 
+	bool isSolidCube(BlockType ty);
+	bool isWalkThrough(BlockType ty);
+	bool isTransparentBlock(BlockType ty);
+	bool isTorchBlock(BlockType blkTy);
+	BlockMeshData& GetMeshData(MeshType ty);
+	BlockType ReplaceBlockTypeByFace(BlockType ty, int face);
 private:
 	BlockDB();
 	BlockDB(BlockDB const& other) = delete;
+	void RegisterModels();
 	BlockDB& operator=(BlockDB const& other) = delete;
 };
 
@@ -97,4 +123,9 @@ public:
 		vf& vtxit, vf& uvit, vi& idxit, INOUT GLuint& vtxn, int face
 	);
 
+	static GLuint PlaceModelData(BlockDB::BlockType ty, glm::f32vec3 offset, int8_t light, vf& vtxit, vf& uvit, vf& lightit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
+	
+	// block-specific implementations
+	static GLuint PlaceStairModelData(BlockDB::BlockType blkTy, glm::f32vec3 offset, int8_t light, vf& vtxit, vf& uvit, vf& lightit, vi& idxit, INOUT size_t& vtxcnt, INOUT size_t& idxcnt);
 };
+

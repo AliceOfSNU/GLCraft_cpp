@@ -1,0 +1,11 @@
+Model Information:
+* title:	Minecraft Diamond Pickaxe
+* source:	https://sketchfab.com/3d-models/minecraft-diamond-pickaxe-38711f4fa0ee400abb61bdb5d9aac168
+* author:	COVE989 (https://sketchfab.com/cove989)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Minecraft Diamond Pickaxe" (https://sketchfab.com/3d-models/minecraft-diamond-pickaxe-38711f4fa0ee400abb61bdb5d9aac168) by COVE989 (https://sketchfab.com/cove989) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

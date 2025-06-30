@@ -68,9 +68,10 @@ namespace Collision {
 	Collision CollisionCheck::GetFirstHit(const std::vector<AABB>& boxes) {
 		// sort all existing collosions in order of entry time
 		
-		using entry_pair = std::pair<float, EntryEvent>;
+		using entry_pair = std::tuple<float, EntryEvent, int>;
 		std::vector<entry_pair> entry_events;
-		for (const auto& box : boxes) {
+		for (int i = 0; i < boxes.size(); ++i) {
+			const auto& box = boxes[i];
 			float entryTime, exitTime;
 			// distances
 			float x_entry, y_entry, z_entry;
@@ -140,7 +141,7 @@ namespace Collision {
 				continue; // no hitwww
 			}
 			else {
-				entry_events.push_back({entryTime, {x_entry, y_entry, z_entry, xt_entry, yt_entry, zt_entry, box.blkTy}});
+				entry_events.push_back({entryTime, {x_entry, y_entry, z_entry, xt_entry, yt_entry, zt_entry, box.blkTy}, i});
 			}
 		}
 
@@ -154,28 +155,130 @@ namespace Collision {
 			return col;
 		}
 
-		std::sort(entry_events.begin(), entry_events.end(), [](const entry_pair& a, const entry_pair& b) {return a.first < b.first;});
-		auto [entryTime, entry] = entry_events[0];
+		std::sort(entry_events.begin(), entry_events.end(), [](const entry_pair& a, const entry_pair& b) {return std::get<0>(a) < std::get<0>(b);});
+		auto [entryTime, entry, hit_index] = entry_events[0];
 
 		Collision col;
 		col.time = entryTime;
 		col.vel = velocity;
 		col.stop_pos = start_pos + velocity * entryTime;
 		col.remain_vel = velocity * (1.0f - entryTime);
-
+		col.hit_index = hit_index;
+		
 		glm::vec3 normal = GetHitNormal(entry);
 		col.normal = normal; 
 		float dotp = normal.x * col.remain_vel.x + normal.y * col.remain_vel.y + normal.z * col.remain_vel.z;
 		col.remain_vel = col.remain_vel - dotp * normal;
-
-		//if (entry_events.size() >= 2 && entry_events[1].first - entryTime < 0.01f) {
-		//	auto entry2 = entry_events[1].second;
-		//	normal = GetHitNormal(entry2);
-		//	dotp = normal.x * col.remain_vel.x + normal.y * col.remain_vel.y + normal.z * col.remain_vel.z;
-		//	col.remain_vel = col.remain_vel - dotp * normal;
-		//}
 		
 		//std::cout << "collided with " << entry.type << std::endl;
+		return col;
+	}
+
+	Collision CollisionCheck::GetLateralHit(const std::vector<AABB>& boxes) {
+		// sort all existing collosions in order of entry time
+		
+		using entry_pair = std::tuple<float, EntryEvent, int>;
+		std::vector<entry_pair> entry_events;
+		for (int i = 0; i < boxes.size(); ++i) {
+			const auto& box = boxes[i];
+			float entryTime, exitTime;
+			// distances
+			float x_entry, y_entry, z_entry;
+			float x_exit, y_exit, z_exit;
+			// time, as proportion of velocity
+			float xt_entry, yt_entry, zt_entry;
+			float xt_exit, yt_exit, zt_exit;
+
+			// TODO: compute xyz.
+			if (velocity.x > 0.0f) {
+				x_entry = box.start.x - (start_pos.x + box_dim.x);
+				x_exit = (box.start.x + box.scale.x) - start_pos.x;
+			}
+			else {
+				x_entry = (box.start.x + box.scale.x) - start_pos.x;
+				x_exit = box.start.x - (start_pos.x + box_dim.x);
+			}
+			if (velocity.y > 0.0f) {
+				y_entry = box.start.y - (start_pos.y + box_dim.y);
+				y_exit = (box.start.y + box.scale.y) - start_pos.y;
+			}
+			else {
+				y_entry = (box.start.y + box.scale.y) - start_pos.y;
+				y_exit = box.start.y - (start_pos.y + box_dim.y);
+			}
+			if (velocity.z > 0.0f) {
+				z_entry = box.start.z - (start_pos.z + box_dim.z);
+				z_exit = (box.start.z + box.scale.z) - start_pos.z;
+			}
+			else {
+				z_entry = (box.start.z + box.scale.z) - start_pos.z;
+				//if(box.blkTy == 7) std::cout << (box.start.z + box.scale.z) << "-" << start_pos.z << '\n';
+				z_exit = box.start.z - (start_pos.z + box_dim.z);
+			}
+			// compute xt, yt, and zt.
+			// check for division by zero
+			if (velocity.x == 0.0f) {
+				if (start_pos.x >= box.start.x + box.scale.x || start_pos.x + box_dim.x <= box.start.x) xt_entry = std::numeric_limits<float>::infinity();
+				else xt_entry = -std::numeric_limits<float>::infinity();
+				xt_exit = std::numeric_limits<float>::infinity();
+			}
+			else {
+				xt_entry = x_entry / velocity.x;
+				xt_exit = x_exit / velocity.x;
+			}
+			if (velocity.y == 0.0f) {
+				if (start_pos.y >= box.start.y + box.scale.y || start_pos.y + box_dim.y <= box.start.y) yt_entry = std::numeric_limits<float>::infinity();
+				else yt_entry = -std::numeric_limits<float>::infinity();
+				yt_exit = std::numeric_limits<float>::infinity();
+			}
+			else {
+				yt_entry = y_entry / velocity.y;
+				yt_exit = y_exit / velocity.y;
+			}
+			if (velocity.z == 0.0f) {
+				if (start_pos.z >= box.start.z + box.scale.z || start_pos.z + box_dim.z <= box.start.z) zt_entry = std::numeric_limits<float>::infinity();
+				else zt_entry = -std::numeric_limits<float>::infinity();
+				zt_exit = std::numeric_limits<float>::infinity();
+			}
+			else {
+				zt_entry = z_entry / velocity.z;
+				zt_exit = z_exit / velocity.z;
+			}
+			entryTime = std::max({ xt_entry, yt_entry, zt_entry });
+			exitTime = std::min({ xt_exit, yt_exit, zt_exit });
+			if (entryTime >= exitTime || entryTime < -0.0f || entryTime > 1.0f || exitTime < 0.0f) {
+				continue; // no hitwww
+			}
+			else {
+				entry_events.push_back({entryTime, {x_entry, y_entry, z_entry, xt_entry, yt_entry, zt_entry, box.blkTy}, i});
+			}
+		}
+
+		Collision col;
+		col.time = -1.0f;
+		col.stop_pos = end_pos;
+		col.vel = velocity;
+		col.normal = { 0.0f, 0.0f, 0.0f };
+		col.remain_vel = { 0.0f, 0.0f, 0.0f };
+		if (entry_events.size() == 0) {
+			return col;
+		}
+
+		std::sort(entry_events.begin(), entry_events.end(), [](const entry_pair& a, const entry_pair& b) {return std::get<0>(a) < std::get<0>(b);});
+		for(auto& [entryTime, entry, hit_index] : entry_events){
+
+			glm::vec3 normal = GetHitNormal(entry);
+			if(normal.y != 0) continue;
+			
+			col.time = entryTime;
+			col.vel = velocity;
+			col.stop_pos = start_pos;
+			col.remain_vel = velocity;
+			col.hit_index = hit_index;
+			col.normal = normal; 
+			break;
+		}
+		
 		return col;
 	}
 }

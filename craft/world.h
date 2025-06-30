@@ -24,8 +24,10 @@
 #include "rendering.hpp"
 #include "blocks.hpp"
 #include "plants.hpp"
+#include "persistence.h"
 
 using pii = std::pair<int, int>;
+using pff = std::pair<float, float>;
 using namespace MapGen;
 
 
@@ -63,10 +65,13 @@ public:
 	using BlockType = BlockDB::BlockType;
 	static constexpr int SZ = 32, HEIGHT = 32; //a chunk is SZ*HEIGHT*SZ large. the y coordinate is up.
 	BlockType grid[SZ][HEIGHT][SZ]; //the blocks are conveniently stored in a 3d array.
-	
+	int8_t light[SZ][HEIGHT][SZ];
+	int8_t torchlight[SZ][HEIGHT][SZ];
+
 	int blockHeight[SZ][SZ]; //the number of blocks in each column
 	BiomeType blockBiome[SZ][SZ]; //the biome type for each column
-	
+	int terrainProperties[SZ][SZ]; //any special peroperties like river
+
 	size_t blockCnt;
 	//GLuint vtxCnt; //number of vertices to render(VBO)
 	//GLuint idxCnt; //number of indices to render(EBO)
@@ -94,9 +99,13 @@ public:
 	void Build();
 	void ReBuild();
 
+	//lighting
+	void BuildLights();
+	
 	//manipulation
-	void DestroyBlockAt(const ivec3& bidx);
+	BlockType DestroyBlockAt(const ivec3& bidx);
 	void PlaceBlockAtCompileTime(const ivec3& bidx, const BlockDB::BlockType blkTy);
+	void PlaceBlockAt(const ivec3& bidx, const BlockDB::BlockType blkTy);
 	
 	//utils
 	//testing worldpos lies inside this chunk's boundary
@@ -110,7 +119,7 @@ public:
 	RenderObject solidRenderObj;
 	RenderObject cutoutRenderObj;
 	RenderObject waterRenderObj;
-
+	std::map<std::tuple<int, int, int>, ModelRenderObject> modelRenderObjs;
 };
 
 
@@ -143,15 +152,21 @@ class TerrainGeneration {
 public:
 	FractalNoise2D heightNoise;
 	FractalNoise2D roughnessNoise;
-
+	FractalNoise2D riverNoise;
 	FractalNoise2D slowNoise, fastNoise;
 	static const int MAP_SIZE = 512;
 	static const int WS_MAP_SPAN = 512*8;
+	static const int RIVER_NOISE_AMPLITUDE = 8;
+	static const int SHIFT_DISTANCE_TO_RIVER = 1;
+	static const int MASK_DISTANCE_TO_RIVER = 0b11110;
+	static const int FLAG_RIVER = 1;
 	using BiomeMap_t = Map<BiomeData, MAP_SIZE>;
 	using LandscapeMap_t = Map<LandscapeData, MAP_SIZE>;
+	using VoronoiMap_t = Map<pff, MAP_SIZE>;
 	std::map<pii, BiomeMap_t> biomeMap;
+	std::map<pii, VoronoiMap_t> voronoiMap;
 	std::map<pii, LandscapeMap_t> landscapeMap;
-
+	
 	TerrainGeneration();
 
 	//6������ ��ǥ -> grasslands biome�� ����� ����
@@ -170,7 +185,7 @@ public:
 	/// <param name="basepos">the world x-z position. the coordinates must be divisible by the returned map's scale</param>
 	/// <param name="biomeMp">OUT biome map containing the query position</param>
 	/// <param name="biomeMp">OUT landscape map containing the query position</param>
-	void FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
+	void FindOrCreateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp, OUT VoronoiMap_t& voronoiMp);
 	
 	/// <summary>
 	/// Uses Voronoi zoom to go from the maximum resolution 4x4 of biome map
@@ -179,7 +194,7 @@ public:
 	/// </summary>
 	/// <param name="chunk">the chunk to operate on</param>
 	/// <param name="biomeMp">the map to zoom at</param>
-	void GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t biomeMp);
+	void GenerateBiomeFromMap(Chunk* chunk, const BiomeMap_t& biomeMp, const VoronoiMap_t& voronoiMp);
 
 	/// <summary>
 	/// uses landscape paramters (absolute scale and roughness)
@@ -199,11 +214,11 @@ public:
 	void ReplaceSurface(Chunk* chunk);
 	
 	void GenerateBiomass(Chunk& chunk);
-
 	
 protected:
-	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp);
+	void GenerateMap(pii basepos, OUT BiomeMap_t& biomeMp, OUT LandscapeMap_t& lscapeMp, OUT VoronoiMap_t& voronoiMp);
 	float simpleNoiseFn(int ix, int iy);
+	void generateSugarCanes(Chunk& chunk, glm::ivec3& basepos, float r);
 };
 
 class World {
@@ -214,11 +229,20 @@ public:
 	std::map<p3i, Chunk*> visChunks;
 	TerrainGeneration worldgen;
 	glm::ivec3 centerChunkIdx{ 0,0,0 };
-
+	std::fstream fileio;
+	std::filesystem::path filepath;
+	std::map<p3i, int> frame_ids;
+	const static int FRAMESIZE = sizeof(ChunkHeader) + 
+		Chunk::HEIGHT*Chunk::SZ*Chunk::SZ*sizeof(Chunk::BlockType) +
+		Chunk::SZ*Chunk::SZ*sizeof(int) +
+		Chunk::SZ*Chunk::SZ*sizeof(BiomeType) +
+		Chunk::SZ*Chunk::SZ*sizeof(int);
+	int numChunks;
+	
 	static constexpr int VIS_WORLD_SZ = 7, HVIS_WORLD_SZ = 3, VIS_WORLD_HEIGHT = 3, HVIS_WORLD_HEIGHT = 1;
 
 	static World& GetInstance() {
-		static World instance = World({0.0f, 1.0f, 0.0f});
+		static World instance = World({0.0f, 1.0f, 0.0f}, "./world_img");
 		return instance;
 	}
 
@@ -226,11 +250,17 @@ public:
 	Chunk* CurrentChunk(const glm::vec3& position); //Pointer to current chunk.
 	Chunk* GetChunkByIndex(const glm::ivec3& idx);
 	Chunk* GetChunkContainingBlock(const glm::ivec3& worldIdx);
+	bool IsOccupied(const glm::vec3& worldpos, bool ignore_walkthrough); // is position occupied by a block?
+
 	void UpdateChunks(glm::vec3& playerPosition);
+	void SaveGameState(glm::vec3& playerPosition);
+	void LoadGameState(glm::vec3& playerPosition);
+	void WriteChunkToFile(Chunk* chunk);
+	void LoadChunkFromFile(Chunk* chunk, int frame_id);
 	void Build();
 
 private:
-	World(glm::vec3 centerPoint);
+	World(glm::vec3 centerPoint, std::string fpath);
 	World(World const& other) = delete;
 	World& operator=(World const& other) = delete;
 	Chunk* findOrCreateChunk(const p3i& chunkIdx);

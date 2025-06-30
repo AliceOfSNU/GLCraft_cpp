@@ -10,7 +10,7 @@ RenderObject::RenderObject(RenderMode _mode):mode(_mode), isBuilt(false), hasBuf
 
 
 // appends block's mesh and texture data into internal storage vector
-void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos, unsigned int face) {
+void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos, unsigned int face, int8_t light_level, int torch_level) {
 	BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
 	BlockMeshData& mesh = BlockDB::GetInstance().GetMeshData(row.meshType);
 	// place vertex data. 4 vertices of a square * 3 (xyz)
@@ -34,6 +34,8 @@ void RenderObject::PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 pos
 		uvdata.push_back(texf);
 	}
 
+	for(int i = 0; i < 4; ++i) lightdata.push_back((float)light_level);
+	for(int i = 0; i < 4; ++i) torchdata.push_back((float)torch_level);
 	// place idx data
 	idxdata.push_back(vtxcnt + 0);
 	idxdata.push_back(vtxcnt + 1);
@@ -56,6 +58,10 @@ void RenderObject::Build() {
 	vao.LinkAttrib(vbo_pos, 0, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
 	vbo_uv.BufferData(uvdata.data(), sizeof(uvdata[0]) * uvdata.size());
 	vao.LinkAttrib(vbo_uv, 1, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vbo_light.BufferData(lightdata.data(), sizeof(lightdata[0]) * lightdata.size());
+	vao.LinkAttrib(vbo_light, 2, 1, GL_FLOAT, sizeof(float), (void*)0);
+	vbo_torch.BufferData(torchdata.data(), sizeof(torchdata[0]) * torchdata.size());
+	vao.LinkAttrib(vbo_torch, 3, 1, GL_FLOAT, sizeof(float), (void*)0);
 	ebo.BufferData(idxdata.data(), sizeof(idxdata[0]) * idxdata.size());
 	vao.Unbind();
 	ebo.Unbind();
@@ -63,6 +69,8 @@ void RenderObject::Build() {
 	// once built, we can dispose of internal storage.
 	vtxdata.clear();
 	uvdata.clear();
+	lightdata.clear();
+	torchdata.clear();
 	idxdata.clear();
 	
 	isBuilt = true;
@@ -74,12 +82,94 @@ void RenderObject::CreateBuffers() {
 	vao.Create();
 	vbo_pos.Create();
 	vbo_uv.Create();
+	vbo_light.Create();
+	vbo_torch.Create();
 	ebo.Create();
 
 	hasBuffers = true;
 }
 
 void RenderObject::DeleteBuffers() {
+	if (hasBuffers) {
+		vao.Delete();
+		vbo_pos.Delete();
+		vbo_uv.Delete();
+		vbo_light.Delete();
+		vbo_torch.Delete();
+		ebo.Delete();
+	}
+
+	vtxcnt = 0;
+	idxcnt = 0;
+
+	isBuilt = false;
+	hasBuffers = false;
+}
+
+void ModelRenderObject::LoadModel(std::shared_ptr<ModelWrapper> mdl, glm::vec3 offset){
+	modelref = mdl;
+	meshRenderObjs.resize(modelref->model.meshes.size());
+	for(int i = 0; i < meshRenderObjs.size(); ++i){
+		Mesh& mesh = modelref->model.meshes[i];
+		for(const glm::vec3& pos:mesh.positions){
+			meshRenderObjs[i].vtxdata.push_back(pos.x + offset.x);
+			meshRenderObjs[i].vtxdata.push_back(pos.y + offset.y);
+			meshRenderObjs[i].vtxdata.push_back(pos.z + offset.z);
+		}
+
+		for(const glm::vec2& uv:mesh.texUVs){
+			meshRenderObjs[i].uvdata.push_back(uv.x);
+			meshRenderObjs[i].uvdata.push_back(uv.y);
+		}
+
+		std::copy(mesh.indices.begin(), mesh.indices.end(), std::back_inserter(meshRenderObjs[i].idxdata));
+		meshRenderObjs[i].vtxcnt = mesh.positions.size();
+		meshRenderObjs[i].idxcnt = mesh.indices.size();
+
+	}
+}
+
+void ModelRenderObject::Build(){
+	if (isBuilt) return;
+	for(MeshRenderObject& obj: meshRenderObjs){
+		obj.Build();
+	}
+	isBuilt = true;
+}
+
+void ModelRenderObject::DeleteBuffers(){
+	for(MeshRenderObject& obj: meshRenderObjs){
+		obj.DeleteBuffers();
+	}
+}
+void ModelRenderObject::Render(){
+	for(int i = 0; i < meshRenderObjs.size(); ++i){
+		meshRenderObjs[i].vao.Bind();
+		for(Texture& tx : modelref->model.meshes[i].textures) tx.Bind();
+		glDrawElements(GL_TRIANGLES, meshRenderObjs[i].idxcnt, GL_UNSIGNED_INT, 0);
+	}
+}
+
+void MeshRenderObject::Build(){
+	if (isBuilt) return;
+	CreateBuffers();
+
+	vao.Bind();
+	vbo_pos.BufferData(vtxdata.data(), sizeof(vtxdata[0]) * vtxdata.size());
+	vao.LinkAttrib(vbo_pos, 0, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vbo_uv.BufferData(uvdata.data(), sizeof(uvdata[0]) * uvdata.size());
+	vao.LinkAttrib(vbo_uv, 1, 2, GL_FLOAT, 2 * sizeof(float), (void*)0);
+	ebo.BufferData(idxdata.data(), sizeof(idxdata[0]) * idxdata.size());
+	vao.Unbind();
+	ebo.Unbind();
+    
+	vtxdata.clear();
+	uvdata.clear();
+	idxdata.clear();
+	isBuilt = true;
+}
+
+void MeshRenderObject::DeleteBuffers() {
 	if (hasBuffers) {
 		vao.Delete();
 		vbo_pos.Delete();
@@ -94,6 +184,58 @@ void RenderObject::DeleteBuffers() {
 	hasBuffers = false;
 }
 
+// PickItem Render Object
+void PickupItemRenderObject::Build(){
+	if(isBuilt) return;
+	if(hasBuffers) return;
+	// we only need these 4 buffers
+	vao.Create();
+	vbo_pos.Create();
+	vbo_uv.Create();
+	hasBuffers = true;
+
+	vtxdata = {
+		-0.25f, 0.25f, 0.0f,
+		-0.25f, -0.25f, 0.0f, 
+		0.25f, -0.25f, 0.0f,
+		-0.25f, 0.25f, 0.0f,
+		0.25f, -0.25f, 0.0f,
+		0.25f, 0.25f, 0.0f,
+	};
+
+	uvdata = {
+		0.0f, 1.0f, (float)imgidx,
+		0.0f, 0.0f, (float)imgidx,
+		1.0f, 0.0f, (float)imgidx,
+		0.0f, 1.0f, (float)imgidx,
+		1.0f, 0.0f, (float)imgidx,
+		1.0f, 1.0f, (float)imgidx
+	};
+	
+	idxcnt = vtxdata.size()/3;
+	vao.Bind();
+	vbo_pos.BufferData(vtxdata.data(), sizeof(vtxdata[0]) * vtxdata.size());
+	vao.LinkAttrib(vbo_pos, 0, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vbo_uv.BufferData(uvdata.data(), sizeof(uvdata[0]) * uvdata.size());
+	vao.LinkAttrib(vbo_uv, 1, 3, GL_FLOAT, 3 * sizeof(float), (void*)0);
+	vao.Unbind();
+
+	vtxdata.clear();
+	uvdata.clear();
+
+	isBuilt = true;
+}
+
+void PickupItemRenderObject::Render(){
+	vao.Bind();
+	glDrawArrays(GL_TRIANGLES, 0, idxcnt);
+}
+
+void PickupItemRenderObject::DeleteBuffers(){
+	vao.Delete();
+	vbo_pos.Delete();
+	vbo_uv.Delete();
+}
 // Shader
 
 Shader::Shader(const char* vertexPath, const char* fragmentPath) {

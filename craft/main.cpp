@@ -17,6 +17,8 @@
 #include "collision.h"
 #include "rendering.hpp"
 #include "weather.h"
+#include "animals.h"
+#include "pickables.h"
 using namespace std;
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -24,7 +26,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void testRaycast(FacesSelection& selectedFaces);
-
+bool raycastEntities();
 constexpr int SCREEN_WIDTH = 800, SCREEN_HEIGHT = 800;
 
 bool isWindowed = true;
@@ -47,13 +49,15 @@ glm::vec3 last_pos;
 glm::ivec3 selectedBlockIdx;
 int selectedFace = -1;
 bool selectedBlockExists;
+bool hitEntityExists;
 
 struct Timer {
 public:
 	double startTime;
 	double setTime;
 	bool running;
-	double Start() {
+	double Start(double t) {
+		setTime = t;
 		startTime = glfwGetTime();
 		running = true;
 		return startTime;
@@ -73,6 +77,7 @@ public:
 	glm::ivec3 blockIdx;
 
 } blockDestructionTimer;
+Timer dragTimer;
 
 std::shared_ptr<Shader> solidUIShader;
 
@@ -102,21 +107,27 @@ int main() {
 
 	// initialize objects
 	FacesSelection selectedFaces;
-	World::GetInstance().CreateInitialChunks(Camera::MainCamera.position);
+	if(World::GetInstance().fileio.is_open()){
+		World::GetInstance().LoadGameState(Camera::MainCamera.position);
+	}else{
+		World::GetInstance().CreateInitialChunks(Camera::MainCamera.position);
+	}
 	CircleFill circleUI(70.f);
 	WeatherParticleRenderObj rainRenderObj(60.0f, 100.0f, 3000);
 	//create gl texture
-	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 16, GL_RGBA);
+	TextureArray2D arr_tex = TextureArray2D("resources/atlas.png", 64, 64, 23, GL_RGBA);
+	TextureArray2D thumbnails_tex = TextureArray2D("resources/thumbnails.png", 64, 64, 17, GL_RGBA);
 	//Texture2D dirt_top_tex = Texture2D("dirt_top_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_side_tex = Texture2D("dirt_side_x64.png", GL_TEXTURE0, GL_RGB);
 	//Texture2D dirt_bottom_tex = Texture2D("dirt_bottom_x64.png", GL_TEXTURE0, GL_RGB);
 
 	Shader shader = Shader("resources/basic.vs", "resources/basic.fs");
 	Shader cutoutShader = Shader("resources/basic.vs", "resources/cutout.fs");
-	Shader weatherShader = Shader("resources/billboard.vs", "resources/cutout_basic.fs");
+	Shader billboardShader = Shader("resources/billboard.vs", "resources/cutout.fs");
+	Shader weatherShader = Shader("resources/particle.vs", "resources/cutout_basic.fs");
 	Shader solidColorShader = Shader("resources/solidcolor.vs", "resources/solidcolor.fs");
 	Shader waterShader = Shader("resources/wave.vs", "resources/wave.fs");
-	solidUIShader = std::make_shared<Shader>("resources/solidGUI.vs", "resources/solidGUI.fs");
+	Shader texShader = Shader("resources/texture.vs", "resources/texture.fs");
 	
 	//get the uniform id for texture sampler
 	shader.use();
@@ -127,6 +138,11 @@ int main() {
 	double applicationStartTime = glfwGetTime();
 	size_t frameCnt = 0;
 	last_pos = Camera::MainCamera.position;
+
+	// testing animals
+	Animal::LoadModels();
+	// Animal::allAnimals.insert(make_shared<Animal>(Animal::AnimalType::PIG, glm::vec3(126.f, 32.0f, 170.0f), 0));
+
 	while (!glfwWindowShouldClose(window)) {
 
 
@@ -146,52 +162,81 @@ int main() {
 		glm::vec3 curr_pos = Camera::MainCamera.position;
 		glm::vec3 begin_pos = last_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
 		glm::vec3 end_pos = curr_pos - glm::vec3{ 0.5f, 1.5f, 0.5f };
+		// comment out below line to disable (temp)gravity
+		//end_pos -= deltaTime * 9.8f * glm::vec3{0.0f, 1.0f, 0.0f};
 
+		// comment below two lines to disable physics
 		glm::vec3 updated_pos = updatePositionWithCollisionCheck(begin_pos, end_pos, { 1.0f, 2.0f, 1.0f });
 		Camera::MainCamera.position = updated_pos + glm::vec3{0.5f, 1.5f, 0.5f};
 		last_pos = Camera::MainCamera.position;
 
 		//block destruction
 		if (mouseHeld) {
-			if (!selectedBlockExists) {
+			//block destruction and placement
+			if (!selectedBlockExists) { // cursor no longer targeting
 				if (blockDestructionTimer.running) blockDestructionTimer.Stop();
+				if(Tool::equippedTool) Tool::equippedTool->Stop();
 			}
-			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > BlockDestructionTimer::DURATION) {
-				//DestroyBlock(blockDestructionTimer.blockIdx);
-				cout << "timer goes off" << endl;
+			else if (selectedBlockIdx == blockDestructionTimer.blockIdx && blockDestructionTimer.GetTime() > blockDestructionTimer.setTime) {
+				// timer expires, destroy block
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
 				if (ch != nullptr) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
-					ch->DestroyBlockAt(bidx);
+					BlockDB::BlockType blkTy = ch->DestroyBlockAt(bidx);
+					glm::vec3 pos = {ch->basepos.x + bidx.x, ch->basepos.y + bidx.y, ch->basepos.z + bidx.z};
+					BlockDB::BlockDataRow& row = BlockDB::GetInstance().tbl[blkTy];
+					if(row.drop != ItemType::NONE) {
+						ItemType itemTy = Tool::ResolveDrop(blkTy);
+						PickupItem::allPickups.insert(std::make_shared<PickupItem>((int)itemTy, pos));
+					}
 				}
-				blockDestructionTimer.Start();
+				//blockDestructionTimer.Start();
 			}
-			else if (!blockDestructionTimer.running || selectedBlockIdx != blockDestructionTimer.blockIdx) {
-				//if selected block exists but timer isn't runinng, it should start running.
-				//also, if the selected block changes while mouse is still pressed, timer should restart.
+			else if ((!blockDestructionTimer.running && dragTimer.GetTime() > 0.5f) ||
+			(blockDestructionTimer.running && selectedBlockIdx != blockDestructionTimer.blockIdx)){
 				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
-
 				if (ch) {
 					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
 					if (ch->grid[bidx.x][bidx.y][bidx.z]) {
 						blockDestructionTimer.blockIdx = selectedBlockIdx;
-						blockDestructionTimer.Start();
+						blockDestructionTimer.Start(Tool::ResolveMineTime(ch->grid[bidx.x][bidx.y][bidx.z]));
+						if(Tool::equippedTool) Tool::equippedTool->Trigger();
 					}
 				}
-
 			}
 		}
 		if (GUIManager::GetInstance().mouseEvent == 1) {
 			std::cout << selectedBlockIdx.x << "," << selectedBlockIdx.y << "," << selectedBlockIdx.z << '\n';
-			std::cout << selectedFace << std::endl;
+			dragTimer.Start(0.0f);
+			//entity raycasting
+			hitEntityExists = raycastEntities();
+		} else if(GUIManager::GetInstance().mouseEvent == 2){
+			dragTimer.Stop();
+			glm::vec2 drag = GUIManager::GetInstance().mouseDrag;
+			if(!hitEntityExists && !blockDestructionTimer.running && selectedBlockExists 
+				&& (drag.x*drag.x + drag.y*drag.y) < 16.0f
+				&& Inventory::selectedBlkTy != BlockDB::BlockType::BLOCK_COUNT){
+				Chunk* ch = World::GetInstance().GetChunkContainingBlock(selectedBlockIdx);
+				if (ch != nullptr) {
+					glm::ivec3 bidx = ch->BlockWorldToGridIdx(selectedBlockIdx);
+					int di[] {0, 1, 0, -1, 0, 0}, dj[] {0, 0, 0, 0, 1, -1}, dk[]{1, 0, -1, 0, 0, 0};
+					if(selectedFace != -1){
+						bidx += glm::ivec3{di[selectedFace], dj[selectedFace], dk[selectedFace]};
+						BlockDB::BlockType blkTy = BlockDB::GetInstance().ReplaceBlockTypeByFace(Inventory::selectedBlkTy, selectedFace);
+						ch->PlaceBlockAt(bidx, blkTy);
+					}
+				}
+			}
+			blockDestructionTimer.Stop();
+			if(Tool::equippedTool) Tool::equippedTool->Stop();
+			hitEntityExists = false;
 		}
 
 		//--------- RENDER
 
-		glClearColor(0.50f, 0.53f, 0.97f, 1.0f);
+		glClearColor(0.20f, 0.33f, 0.47f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
+		
 		arr_tex.Bind();
 
 		//model view projection
@@ -201,30 +246,100 @@ int main() {
 		//model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
 		view = Camera::MainCamera.GetViewMatrix();
 		proj = Camera::MainCamera.GetPerspectiveMatrix();
-
+		
 		// world update
 		World::GetInstance().UpdateChunks(Camera::MainCamera.position);
 		World::GetInstance().Build();
-		//world.Render();
+		Animal::Remove(Camera::MainCamera.position);
+		Animal::Spawn(Camera::MainCamera.position);
 
 		//-------- Render
 		shader.use();
 		shader.setMat4f("model", glm::value_ptr(model));
 		shader.setMat4f("view", glm::value_ptr(view));
 		shader.setMat4f("proj", glm::value_ptr(proj));
-
+		shader.setFloat("daylight_value", 0.7f);
 		// 1. Opaque pass
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->solidRenderObj.isBuilt || !chunk->solidRenderObj.isRender) continue;
 			chunk->solidRenderObj.vao.Bind();
 			glDrawElements(GL_TRIANGLES, chunk->solidRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
+		
+		// 2. Cutout pass
+		cutoutShader.use();
+		cutoutShader.setMat4f("model", glm::value_ptr(model));
+		cutoutShader.setMat4f("view", glm::value_ptr(view));
+		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
+		cutoutShader.setFloat("daylight_value", 0.7f);
+		
+		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
+			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
+			chunk->cutoutRenderObj.vao.Bind();
+			glDrawElements(GL_TRIANGLES, chunk->cutoutRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
+		}
+		// 3.5 Pickable Pass
+		billboardShader.use();
+		glm::mat4 modelview = view * model;
 
-		// 2. Water pass
+		billboardShader.setMat4f("modelview", glm::value_ptr(modelview));
+		billboardShader.setMat4f("proj", glm::value_ptr(proj));
+		billboardShader.setFloat("daylight_value", 0.7f);
+		thumbnails_tex.Bind();
+		for(auto& pickup: PickupItem::allPickups){
+			pickup->Update(deltaTime);
+			modelview = view * pickup->ComputeModelMatrix();
+			for(int i = 0; i < 3; ++i){
+				for(int j = 0; j < 3; ++j){
+					if(i == j) modelview[i][j] = 1.0;
+					else modelview[i][j] = 0.0;
+				}
+			}
+			billboardShader.setMat4f("modelview", glm::value_ptr(modelview));
+			pickup->renderobj.Render();
+		}
+		arr_tex.Bind(); //return to default array
+		
+		// 3. Model pass
+		texShader.use();
+		texShader.setMat4f("model", glm::value_ptr(model));
+		texShader.setMat4f("view", glm::value_ptr(view));
+		texShader.setMat4f("proj", glm::value_ptr(proj));
+		texShader.setVec3f("tint", glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
+			for(auto& [bidx, renderobj]: chunk->modelRenderObjs){
+				renderobj.Render();
+			}
+		}
+		for(auto& animal: Animal::allAnimals){
+			if(glm::length(animal->position - Camera::MainCamera.position) < Animal::RENDER_DIST){
+				animal->Update(deltaTime);
+				if(animal->hit_effect_time > 0){
+					texShader.setVec3f("tint", glm::value_ptr(glm::vec3(1.5f, 0.9f, 0.9f)));
+				}else{
+					texShader.setVec3f("tint", glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+				}
+				texShader.setMat4f("model", glm::value_ptr(animal->ComputeModelMatrix()));
+				animal->renderobj.Render();
+			}
+		}
+		if(Tool::equippedTool){
+			Tool::equippedTool->Update(deltaTime);
+			auto identity = glm::mat4(1.0f);
+			texShader.setMat4f("view", glm::value_ptr(identity));
+			texShader.setMat4f("model", glm::value_ptr(Tool::equippedTool->ComputeModelMatrix()));
+			Tool::equippedTool->renderobj.Render();
+		}
+
+		// 4. Water pass
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
 		waterShader.use();
 		waterShader.setMat4f("model", glm::value_ptr(model));
 		waterShader.setMat4f("view", glm::value_ptr(view));
 		waterShader.setMat4f("proj", glm::value_ptr(proj));
+		waterShader.setFloat("daylight_value", 0.7f);
+
 		Chunk::ivec3 curridx = Chunk::WorldToChunkIndex(Camera::MainCamera.position);
 		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
 			if (!chunk->waterRenderObj.isBuilt || !chunk->waterRenderObj.isRender) continue;
@@ -241,18 +356,8 @@ int main() {
 			}
 			glDrawElements(GL_TRIANGLES, chunk->waterRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
 		}
+		glDisable(GL_BLEND);
 
-		// 3. Cutout pass
-		cutoutShader.use();
-		cutoutShader.setMat4f("model", glm::value_ptr(model));
-		cutoutShader.setMat4f("view", glm::value_ptr(view));
-		cutoutShader.setMat4f("proj", glm::value_ptr(proj));
-		for (auto& [cidx, chunk] : World::GetInstance().visChunks) {
-			if (!chunk->cutoutRenderObj.isBuilt || !chunk->cutoutRenderObj.isRender) continue;
-			chunk->cutoutRenderObj.vao.Bind();
-			glDrawElements(GL_TRIANGLES, chunk->cutoutRenderObj.idxcnt, GL_UNSIGNED_INT, 0);
-		}
-		
 		//-------- Weather particles
 		weatherShader.use();
 		weatherShader.setMat4f("modelview", glm::value_ptr(view));
@@ -262,7 +367,7 @@ int main() {
 
 		//-------- UI
 		if (mouseHeld && blockDestructionTimer.running) {
-			circleUI.Render(blockDestructionTimer.GetTime() / BlockDestructionTimer::DURATION, mouseX, mouseY);
+			circleUI.Render(blockDestructionTimer.GetTime() / blockDestructionTimer.setTime, mouseX, mouseY);
 		}
 		
 		for (auto& [idx, window] : GUIManager::GetInstance().windows) {
@@ -383,7 +488,7 @@ void testRaycast(FacesSelection& selectedFaces) {
 			selectedBlockIdx = idx;
 			selectedFace = face;
 			selectedBlockExists = true;
-			//selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
+			// selectedFaces.AddFace(currChunk->grid[ix][iy][iz], face);
 
 			break;
 		}
@@ -403,6 +508,7 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 	Collision::AABB swAABB = checker.ComputeBroadphaseAABB(); //get swept AABB
 
 	std::vector<Collision::AABB> colliders;
+	std::vector<std::pair<Chunk::ivec3, Chunk::ivec3>> collide_blocks;
 	int endx = (int)(swAABB.start.x + swAABB.scale.x + 0.5f);
 	int endy = (int)(swAABB.start.y + swAABB.scale.y + 0.5f);
 	int endz = (int)(swAABB.start.z + swAABB.scale.z + 0.5f);
@@ -410,12 +516,26 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 		for (int y = (int)(swAABB.start.y-0.5f); y <= endy; ++y) {
 			for (int z = (int)(swAABB.start.z-0.5f); z <= endz; ++z) {
 				Chunk* chunk = World::GetInstance().CurrentChunk({ x, y, z });
+				if(!chunk) continue;
 				Chunk::ivec3 blockidx = chunk->FindBlockIndex({ x, y, z });
 				if (chunk->grid[blockidx.x][blockidx.y][blockidx.z] != BlockDB::BlockType::BLOCK_AIR) {
 					colliders.push_back({ {x-0.5f, y-0.5f, z-0.5f}, {1.0f, 1.0f, 1.0f}, chunk->grid[blockidx.x][blockidx.y][blockidx.z] });
+					collide_blocks.push_back({chunk->chunkIdx, blockidx});
 				}
 			}
 		}
+	}
+
+	// check lateral collision for climbing up stairs!
+	Collision::Collision lat_col = checker.GetLateralHit(colliders);
+	if(lat_col.normal.x * lat_col.vel.x > 0.005 || lat_col.normal.x * lat_col.vel.x < -0.005 ||
+		lat_col.normal.z * lat_col.vel.z > 0.005 || lat_col.normal.z * lat_col.vel.z < -0.005){
+			auto& [cidx, bidx] = collide_blocks[lat_col.hit_index];
+			BlockDB::BlockType upblock = World::GetInstance().GetChunkByIndex(cidx)->grid[bidx.x][bidx.y+1][bidx.z];
+			if(Camera::MainCamera.pitch < 0 && upblock == BlockDB::BlockType::BLOCK_AIR){
+				lat_col.remain_vel.y = 0.01f;
+			}
+			checker = Collision::CollisionCheck(lat_col.stop_pos, lat_col.stop_pos + lat_col.remain_vel, box_dims);
 	}
 	Collision::Collision col = checker.GetFirstHit(colliders);
 	checker = Collision::CollisionCheck(col.stop_pos, col.stop_pos + col.remain_vel, box_dims);
@@ -426,10 +546,32 @@ glm::vec3 updatePositionWithCollisionCheck(glm::vec3 begin_pos, glm::vec3 end_po
 	return col3.stop_pos + col3.remain_vel;
 }
 
+bool raycastEntities(){
+	glm::vec3 dir = Camera::MainCamera.ScreenPointToRay(mouseX, mouseY);
+	Ray ray(Camera::MainCamera.position, dir);
+	Raycaster raycast(ray, 10.0f);
+	for(auto& animal : Animal::allAnimals){
+		Collision::BoxCollider col = {animal->position - glm::vec3{0.5f, 0.5f, 0.5f},
+										{1.0f, 1.0f, 1.0f}, animal};
+		if(raycast.CheckAABB(col)){
+			raycast.colliders.push_back(col);
+		}
+	}
+	Collision::BoxCollider hit;
+	if(raycast.GetFirstHit(OUT hit)){
+		auto animal = std::static_pointer_cast<Animal>(hit.entity);
+		animal->Hit();
+		return true;
+	}
+	return false;
+}
+
 void processInput(GLFWwindow* window)
 {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
+		World::GetInstance().SaveGameState(Camera::MainCamera.position);
 		glfwSetWindowShouldClose(window, true);
+	}
 
 	// TODO : make camera movable (WASD) & increase or decrease dayFactor(press O: increase, press P: decrease)
 	const float cameraSpeed = 0.05f;
@@ -456,46 +598,6 @@ void processInput(GLFWwindow* window)
 		}
 		else {
 			std::shared_ptr<Inventory> main_panel = make_shared<Inventory>();
-			main_panel->renderObj = make_unique<SolidGUIRenderObject>();
-			main_panel->renderObj->shader = solidUIShader;
-			main_panel->centerX = 400.0f;
-			main_panel->centerY = 400.0f;
-			main_panel->width = 400.f;
-			main_panel->height = 200.f;
-			for (int i = 0; i < 3; ++i) {
-				for (int j = 0; j < 5; ++j) {
-					std::shared_ptr<Button> item = make_shared<Button>();
-					item->id = "inventory_" + std::to_string(5 * i + j);
-					item->renderObj = make_unique<SolidGUIRenderObject>(glm::vec3(0.1f, 0.1f, 0.1f));
-					item->renderObj->shader = solidUIShader;
-					item->centerX = 400.f - (60.f * 2) + j * 60.f;
-					item->width = 50.f;
-					item->centerY = 400.f - (60.f * 1) + i * 60.f;
-					item->height = 50.f;
-					auto onClickListener = [](Button& btn) {
-						auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn.renderObj.get());
-						auto start = btn.id.find("inventory_", 0) + 10;
-						auto idnum = stoi(btn.id.substr(start, btn.id.size()-start));
-						auto inven = dynamic_cast<Inventory*>(GUIManager::GetInstance().windows["inventory"].get());
-						inven->Select(idnum);
-					};
-					auto onEnterListener = [](Button& btn) {
-						auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn.renderObj.get());
-						solidRend->fillcolor = { 0.2f, 0.2f, 0.2f };
-					};
-					auto onExitListener = [](Button& btn) {
-						auto solidRend = dynamic_cast<SolidGUIRenderObject*>(btn.renderObj.get());
-						auto start = btn.id.find("inventory_", 0) + 10;
-						auto idnum = stoi(btn.id.substr(start, btn.id.size() - start));
-						auto inven = dynamic_cast<Inventory*>(GUIManager::GetInstance().windows["inventory"].get());
-						if(idnum != inven->selected) solidRend->fillcolor = { 0.1f, 0.1f, 0.1f };
-					};
-					item->OnClick = onClickListener;
-					item->OnMouseEnter = onEnterListener;
-					item->OnMouseExit = onExitListener;
-					main_panel->children.push_back(std::move(item));
-				}
-			}
 			main_panel->Build();
 			GUIManager::GetInstance().windows["inventory"] = main_panel;
 		}
@@ -514,6 +616,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 		Camera::MainCamera.ProcessMouseMovement(dx, dy);
 	}
 	GUIManager::GetInstance().mouseXY = { mouseX, GUI::SCREEN_HEIGHT-mouseY };
+	GUIManager::GetInstance().mouseDelta = {mouseX - lastX, mouseY - lastY};
 	lastX = xpos;
 	lastY = ypos;
 }
@@ -522,26 +625,26 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	static double mouseLastX, mouseLastY;
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
 		if (!mouseHeld) { //pressed
-			cout << "0\n";
 			mouseHeld = true;
 			glfwGetCursorPos(window, &mouseLastX, &mouseLastY);
 
 			if (selectedBlockExists) {
 				blockDestructionTimer.blockIdx = selectedBlockIdx;
-				blockDestructionTimer.Start();
+				// blockDestructionTimer.Start();
 			}
 			GUIManager::GetInstance().mouseEvent = 1;
 		}
 		else { //released
 			GUIManager::GetInstance().mouseEvent = 2;
+			double mouseRelX, mouseRelY;
+			glfwGetCursorPos(window, &mouseRelX, &mouseRelY);
+			GUIManager::GetInstance().mouseDrag = {mouseRelX - mouseLastX, mouseRelY - mouseLastY};
 			mouseHeld = false;
-			blockDestructionTimer.Stop();
 		}
 	}
 	else { //held
 		GUIManager::GetInstance().mouseEvent = 0;
 	}
-	
 }
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------

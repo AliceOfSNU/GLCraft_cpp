@@ -9,9 +9,8 @@
 #include <glad/glad.h>
 
 #include "GLObjects.h"
-#include "camera.h" 
 #include "blocks.hpp"
-
+#include "model_utils.h"
 class RenderObject {
 public:
 
@@ -24,7 +23,7 @@ public:
 	RenderObject(RenderMode _mode);
 
 	void Build();
-	void PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 offset, unsigned int face);
+	void PlaceBlockFaceData(BlockDB::BlockType blkTy, glm::f32vec3 offset, unsigned int face, int8_t light_level, int torch_level);
 	void CreateBuffers();
 	void DeleteBuffers();
 
@@ -44,23 +43,48 @@ public:
 	// they are created in renderobject's constructor
 	// and destroyed in renderobject's destructor
 	VAO vao;
-	VBO vbo_pos, vbo_uv;
+	VBO vbo_pos, vbo_uv, vbo_light, vbo_torch;
 	EBO ebo;
 
-	std::vector<GLfloat> vtxdata, uvdata;
+	std::vector<GLfloat> vtxdata, uvdata, lightdata, torchdata;
 	std::vector<GLuint> idxdata;
 
     // how much data transferred to GLObjects,
     // not vtxdata.size() or idxdata.size()
     // interal storage can actually be empty
 	size_t vtxcnt = 0, idxcnt = 0;
-
-private:
-
-	bool hasBuffers; 
+    bool hasBuffers = false; 
 
 };
 
+
+class MeshRenderObject: public RenderObject{
+public:
+    void Build();
+    void DeleteBuffers();
+};
+    
+    
+class ModelRenderObject: public RenderObject{
+public:
+    void LoadModel(std::shared_ptr<ModelWrapper> model, glm::vec3 offset);
+    void Render();
+    void DeleteBuffers();
+    void Build();
+private:
+    std::shared_ptr<ModelWrapper> modelref;
+    std::vector<MeshRenderObject> meshRenderObjs;
+};
+
+class PickupItemRenderObject: public RenderObject{
+public:
+    void Render();
+    void DeleteBuffers();
+    void Build();
+    int imgidx;
+};
+
+    
 class Shader
 {
 public:

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Minecraft Stone Pickaxe
+* source:	https://sketchfab.com/3d-models/minecraft-stone-pickaxe-86699e3818ea456888bf6604cea5b97c
+* author:	COVE989 (https://sketchfab.com/cove989)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Minecraft Stone Pickaxe" (https://sketchfab.com/3d-models/minecraft-stone-pickaxe-86699e3818ea456888bf6604cea5b97c) by COVE989 (https://sketchfab.com/cove989) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

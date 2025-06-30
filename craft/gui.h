@@ -3,6 +3,7 @@
 #define GUI_H
 #include "rendering.hpp"
 #include "GLObjects.h"
+#include "tools.hpp"
 #include <iostream>
 #include <map>
 #include <string>
@@ -21,7 +22,7 @@ public:
 	void Render(float percentage, float sx, float sy);
 
 private:
-	Shader shader = Shader("circleui.vert", "circleui.frag");
+	Shader shader = Shader("resources/circleui.vert", "resources/circleui.frag");
 	VAO vao;
 	VBO vbo;
 	std::vector<float> vertices = std::vector<float>{
@@ -55,10 +56,15 @@ public:
 		return instance;
 	}
 	std::map<std::string, std::shared_ptr<GUI>> windows;
+	std::shared_ptr<Shader> solidUIShader;
+	std::shared_ptr<Shader> atlasUIShader;
+
 	glm::vec2 mouseXY;
+	glm::vec2 mouseDelta;
+	glm::vec2 mouseDrag;
 	int mouseEvent;
 private:
-	GUIManager()=default;
+	GUIManager();
 	GUIManager(GUIManager const& other) = delete;
 	GUIManager& operator=(GUIManager const& other) = delete;
 };
@@ -79,16 +85,22 @@ public:
 
 class SolidGUIRenderObject: public GUIRenderObject {
 public:
-	SolidGUIRenderObject() = default;
+	SolidGUIRenderObject();
 	SolidGUIRenderObject(glm::vec3 fillcolor);
 	virtual void Render() override;
 	glm::vec3 fillcolor{ 0.3f, 0.3f, 0.3f };
 };
 
-//class ImageGUIRenderObject : public GUIRenderObject {
-//public:
-//	ImageGUIRenderObject()
-//};
+class AtlasGUIRenderObject: public GUIRenderObject {
+public:
+	AtlasGUIRenderObject(std::shared_ptr<TextureArray2D> tex);
+	virtual void Render() override;
+	virtual void Build() override;
+	virtual void Destroy() override;
+	std::shared_ptr<TextureArray2D> arr_tex;
+	VBO vbo_uv;
+	std::vector<float> uvs;
+};
 
 class Panel: public GUI{
 public:
@@ -102,29 +114,72 @@ public:
 	virtual void Build() override;
 	virtual void Destroy() override;
 
-	std::unique_ptr<GUIRenderObject> renderObj;
+	std::shared_ptr<GUIRenderObject> renderObj;
 
 protected:
-	bool isBuilt;
+	bool isBuilt = false;
 };
 
 class Button : public Panel{
 public:
 	void Update() override;
-	std::function<void(Button&)> OnClick;
-	std::function<void(Button&)> OnMouseEnter;
-	std::function<void(Button&)> OnMouseExit;
+	virtual void OnClick() {};
+	virtual void OnMouseEnter() {};
+	virtual void OnMouseExit() {};
 	std::string id;
 protected:
 	bool isHovering = false;
 };
 
+
 //
 
 class Inventory : public Panel {
 public:
-	int selected = 0;
+	using BlockType = BlockDB::BlockType;
+	using ToolType = Tool::ToolType;
+	static BlockDB::BlockType selectedBlkTy; //persists which block type is selected, when ui is closed
+	static int selected;
+	static int page;
+	inline const static int NUM_PAGES = 2;
+	static const std::vector<BlockType> btnToBlkTy;
+	static const std::vector<ToolType> btnToToolTy;
+	static const std::vector<int> btnToImgIdx;
+	Inventory();
 	void Select(int num);
+	void MovePage(int deltaPage);
+	void MakePage(int pagenum);
+
+	inline static const float INVEN_CENTER_X = 400.f;
+	inline static const float INVEN_CENTER_Y = 400.f;
+	inline static const float INVEN_WIDTH = 420.f;
+	inline static const float INVEN_HEIGHT = 200.f; 
+	inline static const int ITEMS_PER_PAGE = 15;
+	inline static const int MAX_ITEMS = 17;
+};
+
+class InventoryButton: public Button{
+public:
+	int itemidx;
+	InventoryButton(int idx, float cx, float cy, float w, float h);
+	virtual void OnClick() override;
+	virtual void OnMouseEnter() override;
+	virtual void OnMouseExit() override;
+
+};
+
+class InvenBtnImg: public Panel {
+public:
+	int imgidx = 0;
+	InvenBtnImg(int imgidx);
+	virtual void Build() override;
+};
+
+class InventoryPageButton: public Button{
+public:
+	int dpage = 0;
+	InventoryPageButton(int dp);
+	virtual void OnClick() override;
 };
 
 #endif
